@@ -1,0 +1,15 @@
+unit TTURaffle;
+
+interface
+ type
+    TComunicacaoAlphabot = class
+
+    private
+    Fslug: String;
+
+    public
+      property slug: String read Fslug write Fslug;
+    End;
+implementation
+
+end.

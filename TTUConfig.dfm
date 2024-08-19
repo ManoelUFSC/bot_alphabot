@@ -1,0 +1,122 @@
+object frmConfigura: TfrmConfigura
+  Left = 0
+  Top = 0
+  BorderIcons = []
+  Caption = 'Configura'#231#245'es'
+  ClientHeight = 221
+  ClientWidth = 717
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  OnShow = FormShow
+  PixelsPerInch = 96
+  TextHeight = 13
+  object lb_APIKEY1: TLabel
+    Left = 8
+    Top = 38
+    Width = 93
+    Height = 13
+    Caption = 'Chave API Key #1:'
+  end
+  object lb_APIKEY2: TLabel
+    Left = 8
+    Top = 65
+    Width = 93
+    Height = 13
+    Caption = 'Chave API Key #2:'
+  end
+  object lb_APIKEY3: TLabel
+    Left = 8
+    Top = 92
+    Width = 93
+    Height = 13
+    Caption = 'Chave API Key #3:'
+  end
+  object lb_TimeoutConsulta: TLabel
+    Left = 8
+    Top = 16
+    Width = 175
+    Height = 13
+    Caption = 'Tempo entre as consultas (minutos):'
+  end
+  object lb_URLConsulta: TLabel
+    Left = 8
+    Top = 119
+    Width = 68
+    Height = 13
+    Caption = 'URL Consulta:'
+  end
+  object lb_URLRegistro: TLabel
+    Left = 8
+    Top = 146
+    Width = 66
+    Height = 13
+    Caption = 'URL Registro:'
+  end
+  object pnBotoes: TPanel
+    Left = 0
+    Top = 180
+    Width = 717
+    Height = 41
+    Align = alBottom
+    TabOrder = 0
+    object btFechar: TButton
+      Left = 1
+      Top = 1
+      Width = 144
+      Height = 39
+      Align = alLeft
+      Caption = 'Fechar'
+      TabOrder = 0
+      OnClick = btFecharClick
+    end
+  end
+  object ed_APIKEY1: TEdit
+    Left = 189
+    Top = 35
+    Width = 240
+    Height = 21
+    TabOrder = 1
+  end
+  object ed_APIKEY2: TEdit
+    Left = 189
+    Top = 62
+    Width = 240
+    Height = 21
+    TabOrder = 2
+  end
+  object ed_APIKEY3: TEdit
+    Left = 189
+    Top = 89
+    Width = 240
+    Height = 21
+    TabOrder = 3
+  end
+  object ed_TimeoutPesquisa: TEdit
+    Left = 189
+    Top = 11
+    Width = 44
+    Height = 21
+    TabOrder = 4
+    Text = '3'
+    OnKeyPress = ed_TimeoutPesquisaKeyPress
+  end
+  object ed_URLConsulta: TEdit
+    Left = 189
+    Top = 116
+    Width = 476
+    Height = 21
+    TabOrder = 5
+  end
+  object ed_URLRegistro: TEdit
+    Left = 189
+    Top = 143
+    Width = 476
+    Height = 21
+    TabOrder = 6
+  end
+end

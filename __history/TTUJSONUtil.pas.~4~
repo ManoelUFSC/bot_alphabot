@@ -1,0 +1,804 @@
+unit TTUJSONUtil;
+
+interface
+
+uses
+  Classes,
+  SysUtils,
+  IdURI,
+{$IFDEF DELPHIXE}
+  System.Rtti,
+  System.JSON,
+  REST.Json
+{$ELSE}
+  ,
+  uLkJSON
+{$ENDIF}
+     ;
+
+type
+
+  TJSONUtil = class
+  public
+    class function GetCaracteresValidos: string;
+{$IFDEF DELPHIXE}
+    class function ToJSONObject(pObjeto: TObject): TJSONObject;
+    class function ParseJSONValue(const pStrJson: string): TJSONValue;
+{$ENDIF}
+    class function GetStr(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: string = ''; pTrataQuebra: Boolean = False): string;
+    class function GetStrList(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: TStringList = nil; pTrataQuebra: Boolean = False): TStringList;
+    class function GetObj(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string): {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF};
+    class function GetValue(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function GetInt(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Integer = 0): Integer;
+    class function GetInt64(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Int64 = 0): Int64;
+    class function GetCurr(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Currency = 0): Currency;
+    class function GetDoub(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Double = 0): Double;
+    class function GetBool(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Boolean = False): Boolean;
+    class function GetDateTime(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: TDateTime = 0): TDateTime;
+    class function GetCript(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: string = ''): string;
+    //    class function Decode(pStr: String): String;
+    //    class function Encode(pStr: String): String;
+    class function SetStr(pStr: string; pTrataQuebra: Boolean = False; pUsaNull: boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetStrList(pStrList: TStringList; pTrataQuebra: Boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetInt(pInt: Integer; pUsaNull: boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetInt64(pInt: Int64; pUsaNull: boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetBool(pBoo: Boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetCurr(pNum: Currency; pUsaNull: boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetDoub(pNum: Double; pUsaNull: boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetDateTime(pDat: TDateTime; pFormat: string = 'DD/MM/YYYY HH:NN:SS'; pTrataZero: Boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetCript(pStr: string): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetObj(pObj: TObject; pUsaNull: boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+    class function SetNull(): {$IFDEF DELPHIXE}TJSONNull{$ELSE}TlkJSONbase{$ENDIF};
+    class function Vazio(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}): Boolean;
+    class function LimpaString(cStr: AnsiString): AnsiString;
+    class procedure RemovePair(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pName: string);
+
+    class function NewJSONObjet(): {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF};
+    class function NewJSONObjetList(): {$IFDEF DELPHIXE}TJSONArray{$ELSE}TlkJSONlist{$ENDIF};
+
+    class procedure Add(pJSONObjet: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; const pChave: string; pValor: {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF}); overload;
+    class procedure Add(pJSONObjetList: {$IFDEF DELPHIXE}TJSONArray{$ELSE}TlkJSONlist{$ENDIF}; pValor: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}); overload;
+
+{$IFDEF DELPHIXE}
+    class function GetJSONArrayFromStringList(const AStringList: TStringList): TJSONArray;
+    class procedure AddArrayStr(var jsonObj: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; const name: string; const values: array of string);
+{$ENDIF}
+  end;
+
+implementation
+
+uses
+  TTUFuncoes;
+
+{ TJSONUtil }
+
+class function TJSONUtil.SetCript(pStr: string): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+
+end;
+
+class function TJSONUtil.SetCurr(pNum: Currency; pUsaNull: boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+//var
+//  fs: TFormatSettings;
+//  cStr: string;
+//  nVal: Currency;
+begin
+  //  // Converte valor em string. Ex.: 1.000,5 para "1.000,5".
+  //  cStr := FloatToStr(pNum);
+  //
+  //  // Converte para formato que È aceito pelo JSON. Ex.: "1.000,5" para "1000.5".
+  //  cStr := StringReplace(StringReplace(cStr,'.','',[rfReplaceAll]),',','.',[rfReplaceAll]);
+  //
+  //  // Transforma em n˙mero novamente, mas agora com formato americano.
+  //  fs := TFormatSettings.Create;
+  //  fs.DecimalSeparator := '.';
+  //  nVal := StrToFloat(cStr, fs);
+  //
+  //  Result := TJSONNumber.Create(nVal);
+  if (pNum = 0) and pUsaNull then begin
+    Result := TJSONUtil.SetNull();
+  end else begin
+    Result := {$IFDEF DELPHIXE}TJSONNumber.Create(pNum){$ELSE}TlkJSONnumber.Generate(pNum){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetDateTime(pDat: TDateTime; pFormat: string; pTrataZero: Boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  // JSON n„o possui formato especÌfico para data. Ent„o, deve ser convertido para string
+  if (pDat = 0) and (pTrataZero) then begin
+    Result := {$IFDEF DELPHIXE}TJSONString.Create('0000-00-00 00:00:00'){$ELSE}TlkJSONstring.Generate('0000-00-00 00:00:00'){$ENDIF};
+  end else begin
+    Result := {$IFDEF DELPHIXE}TJSONString.Create(FormatDateTime(pFormat, pDat)){$ELSE}TlkJSONstring.Generate(FormatDateTime(pFormat, pDat)){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetDoub(pNum: Double; pUsaNull: boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  if (pNum = 0) and pUsaNull then begin
+    Result := TJSONUtil.SetNull();
+  end else begin
+    Result := {$IFDEF DELPHIXE}TJSONNumber.Create(pNum){$ELSE}TlkJSONnumber.Generate(pNum){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetBool(pBoo: Boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  if pBoo then begin
+    Result := {$IFDEF DELPHIXE}TJSONTrue.Create(){$ELSE}TlkJSONboolean.Generate(True){$ENDIF};
+  end else begin
+    Result := {$IFDEF DELPHIXE}TJSONFalse.Create(){$ELSE}TlkJSONboolean.Generate(False){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetInt(pInt: Integer; pUsaNull: boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  if (pInt = 0) and pUsaNull then begin
+    Result := TJSONUtil.SetNull();
+  end else begin
+    Result := {$IFDEF DELPHIXE}TJSONNumber.Create(pInt){$ELSE}TlkJSONnumber.Generate(pInt){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetInt64(pInt: Int64; pUsaNull: boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  if (pInt = 0) and pUsaNull then begin
+    Result := TJSONUtil.SetNull();
+  end else begin
+    Result := {$IFDEF DELPHIXE}TJSONNumber.Create(pInt){$ELSE}TlkJSONnumber.Generate(pInt){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetNull: {$IFDEF DELPHIXE}TJSONNull{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  Result := {$IFDEF DELPHIXE}TJSONNull.Create; {$ELSE}TlkJSONnull.Create; {$ENDIF}
+end;
+
+class function TJSONUtil.SetObj(pObj: TObject; pUsaNull: boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+{$IFNDEF DELPHIXE}TTotallException.Create('Convers„o n„o disponÌvel!'); {$ENDIF}
+  if (not Assigned(pObj)) and pUsaNull then begin
+    Result := TJSONUtil.SetNull();
+  end else begin
+    Result := {$IFDEF DELPHIXE}TJson.ObjectToJsonObject(pObj){$ELSE}TlkJSONobject.Generate(True){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetStr(pStr: string; pTrataQuebra: Boolean; pUsaNull: boolean): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  if (Trim(pStr) = '') and pUsaNull then begin
+    Result := TJSONUtil.SetNull();
+  end else begin
+    //Result := TJSONString.Create(StringReplace(LimpaString(pStr),'\','\\',[rfReplaceAll]));
+    if not pTrataQuebra then
+      Result := {$IFDEF DELPHIXE}TJSONString.Create(LimpaString(pStr)){$ELSE}TlkJSONstring.Generate(LimpaString(pStr)){$ENDIF}
+    else
+      Result := {$IFDEF DELPHIXE}TJSONString.Create(LimpaString(StringReplace(pStr, sLineBreak, '\n', [rfReplaceAll]))){$ELSE}TlkJSONstring.Generate(LimpaString(StringReplace(pStr, sLineBreak, '\n', [rfReplaceAll]))){$ENDIF};
+  end;
+end;
+
+class function TJSONUtil.SetStrList(pStrList: TStringList; pTrataQuebra: Boolean = False): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+{$IFDEF DELPHIXE}
+var
+  oJSONArray: TJSONArray;
+  cStr: string;
+{$ENDIF}
+begin
+  Result := nil;
+
+{$IFDEF DELPHIXE}
+  oJSONArray := TJSONArray.Create;
+  if Assigned(pStrList) then begin
+    for cStr in pStrList do begin
+      oJSONArray.AddElement(TJSONUtil.SetStr(cStr));
+    end;
+  end;
+  Result := oJSONArray;
+{$ELSE}
+  raise Exception.Create('TJSONUtil.SetStrList n„o implementado');
+{$ENDIF}
+end;
+
+//class function TJSONUtil.Decode(pStr: String): String;
+//begin
+//   Result := StringReplace(TIdURI.URLDecode(pStr),'+',' ',[rfReplaceAll]);
+//end;
+
+//class function TJSONUtil.Encode(pStr: String): String;
+//begin
+//   Result := StringReplace(TIdURI.URLEncode(pStr),'+',' ',[rfReplaceAll]);
+//end;
+
+class function TJSONUtil.GetBool(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Boolean = False): Boolean;
+begin
+  Result := pDefault;
+  try
+    if Assigned(pJSONObject) then begin
+{$IFDEF DELPHIXE}
+      if (pJSONObject.GetValue(pParametro) is TJSONTrue) or
+         (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONTrue) or
+         (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONTrue) then begin
+        Result := True;
+      end else if (pJSONObject.GetValue(pParametro) is TJSONFalse) or
+         (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONFalse) or
+         (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONFalse) then begin
+        Result := False;
+      end;
+{$ELSE}
+      if (pJSONObject.Field[pParametro] is TlkJSONboolean) then begin
+        Result := pJSONObject.getBoolean(pParametro);
+      end else if (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONboolean) then begin
+        Result := pJSONObject.getBoolean(LowerCase(pParametro));
+      end else if (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONboolean) then begin
+        Result := pJSONObject.getBoolean(UpperCase(pParametro));
+      end;
+{$ENDIF}
+    end;
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetCaracteresValidos: string;
+begin
+  Result := '¡¿√¬ƒ…» ÀÕÃŒœ”“’‘÷⁄Ÿ€‹›«— ' +
+     '·‡„‚‰ÈËÍÎÌÏÓÔÛÚıÙˆ˙˘˚¸˝ÁÒ' +
+     chr(39) +           // aspas simples
+     chr(10) + chr(13) + // quebra de linha
+     'ABCDEFGHIJKLMNOPQRSTUVXWYZ' +
+     'abcdefghijklmnopqrstuvxwyz' +
+     '1234567890' +
+     '-=¥~[],.;/\' +
+     '"!@#$%®&*()_+`^{}<>:?|' +
+     'π≤≥£¢¨ß™∫\\fim'
+end;
+
+class function TJSONUtil.GetCript(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro, pDefault: string): string;
+var
+  cStr: string;
+begin
+  try
+    Result := pDefault;
+    if Assigned(pJSONObject) then begin
+{$IFDEF DELPHIXE}
+      if (pJSONObject.GetValue(pParametro) is TJSONString) then begin
+        cStr := TJSONString(pJSONObject.GetValue(pParametro)).Value;
+      end else if (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONString) then begin
+        cStr := TJSONString(pJSONObject.GetValue(LowerCase(pParametro))).Value;
+      end else if (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONString) then begin
+        cStr := TJSONString(pJSONObject.GetValue(UpperCase(pParametro))).Value;
+      end;
+{$ELSE}
+      if (pJSONObject.Field[pParametro] is TlkJSONstring) then begin
+        cStr := pJSONObject.getString(pParametro);
+      end else if (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONstring) then begin
+        cStr := pJSONObject.getString(LowerCase(pParametro));
+      end else if (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONstring) then begin
+        cStr := pJSONObject.getString(UpperCase(pParametro));
+      end;
+{$ENDIF}
+    end;
+    Result := string(DescriptografaTextoSegur(AnsiString(cStr)));
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetCurr(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Currency = 0): Currency;
+var
+  //  cStr: string;
+  //  nVal: Double;
+  //  fs: TFormatSettings;
+  cParametro: string;
+begin
+  cParametro := '';
+  try
+{$IFDEF DELPHIXE}
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(pParametro) is TJSONNumber) then begin
+      cParametro := pParametro;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONNumber) then begin
+      cParametro := LowerCase(pParametro);
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONNumber) then begin
+      cParametro := UpperCase(pParametro);
+    end;
+
+    // Currency È armazenado como uma string porque o System.JSON sÛ trabalha com ponto como DecimalSeparator.
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(cParametro) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(cParametro)).AsDouble;
+      //     // Valor est· no formato americado (com ponto para definir casas decimais).
+      //     nVal := TJSONNumber(pJSONObject.GetValue(cParametro)).AsDouble;
+      //
+      //     // Converte para texto para permitir o replace
+      //     fs := TFormatSettings.Create;
+      //     fs.DecimalSeparator := '.';
+      //     cStr := FloatToStr(nVal, fs);
+      //
+      //     // Converte para formato brasileiro
+      //     cStr := StringReplace(StringReplace(cStr,',','',[rfReplaceAll]),'.',',',[rfReplaceAll]);
+      //
+      //     // Converte para formato numÈrico
+      //     Result := StrToFloat(cStr);
+
+    end else begin
+      Result := pDefault;
+    end;
+{$ELSE}
+    if Assigned(pJSONObject) and (pJSONObject.Field[pParametro] is TlkJSONnumber) then begin
+      cParametro := pParametro;
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONnumber) then begin
+      cParametro := LowerCase(pParametro);
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONnumber) then begin
+      cParametro := UpperCase(pParametro);
+    end;
+
+    if Assigned(pJSONObject) and (pJSONObject.Field[cParametro] is TlkJSONnumber) then begin
+      Result := pJSONObject.getDouble(cParametro);
+    end else begin
+      Result := pDefault;
+    end;
+{$ENDIF}
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetDateTime(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: TDateTime): TDateTime;
+var
+  cJSONValue: string;
+begin
+  try
+    Result := pDefault;
+
+    if Assigned(pJSONObject) then begin
+      cJSONValue := GetStr(pJSONObject, pParametro);
+      if (Trim(cJSONValue) > '') then
+        Result := StrToDateTimeDef(cJSONValue, pDefault);
+      if (result = 0) and (Pos('/', cJSONValue) = 0) and (Pos('-', cJSONValue) > 0) (*and (Pos('T', cJSONValue) > 0)*) then
+        try
+          Result := XMLDate2DateTime(cJSONValue);
+        except
+          Result := pDefault;
+        end;
+    end;
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetDoub(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Double): Double;
+var
+  cParametro: string;
+begin
+  cParametro := '';
+  try
+{$IFDEF DELPHIXE}
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(pParametro) is TJSONNumber) then begin
+      cParametro := pParametro;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONNumber) then begin
+      cParametro := LowerCase(pParametro);
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONNumber) then begin
+      cParametro := UpperCase(pParametro);
+    end;
+
+    // Double È armazenado como uma string porque o System.JSON sÛ trabalha com ponto como DecimalSeparator.
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(cParametro) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(cParametro)).AsDouble;
+    end else begin
+      Result := pDefault;
+    end;
+{$ELSE}
+    if Assigned(pJSONObject) and (pJSONObject.Field[pParametro] is TlkJSONnumber) then begin
+      cParametro := pParametro;
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONnumber) then begin
+      cParametro := LowerCase(pParametro);
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONnumber) then begin
+      cParametro := UpperCase(pParametro);
+    end;
+
+    if Assigned(pJSONObject) and (pJSONObject.Field[cParametro] is TlkJSONnumber) then begin
+      Result := pJSONObject.getDouble(cParametro);
+    end else begin
+      Result := pDefault;
+    end;
+{$ENDIF}
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetInt(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Integer = 0): Integer;
+begin
+  try
+{$IFDEF DELPHIXE}
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(pParametro) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(pParametro)).AsInt;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(LowerCase(pParametro))).AsInt;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(UpperCase(pParametro))).AsInt;
+    end else begin
+      Result := pDefault;
+    end;
+{$ELSE}
+    if Assigned(pJSONObject) and (pJSONObject.Field[pParametro] is TlkJSONnumber) then begin
+      Result := pJSONObject.getInt(pParametro);
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONnumber) then begin
+      Result := pJSONObject.getInt(LowerCase(pParametro));
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONnumber) then begin
+      Result := pJSONObject.getInt(UpperCase(pParametro));
+    end else begin
+      Result := pDefault;
+    end;
+{$ENDIF}
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetInt64(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: Int64 = 0): Int64;
+begin
+  try
+{$IFDEF DELPHIXE}
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(pParametro) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(pParametro)).AsInt64;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(LowerCase(pParametro))).AsInt64;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONNumber) then begin
+      Result := TJSONNumber(pJSONObject.GetValue(UpperCase(pParametro))).AsInt64;
+    end else begin
+      Result := pDefault;
+    end;
+{$ELSE}
+    if Assigned(pJSONObject) and (pJSONObject.Field[pParametro] is TlkJSONnumber) then begin
+      Result := pJSONObject.getInt(pParametro);
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONnumber) then begin
+      Result := pJSONObject.getInt(LowerCase(pParametro));
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONnumber) then begin
+      Result := pJSONObject.getInt(UpperCase(pParametro));
+    end else begin
+      Result := pDefault;
+    end;
+{$ENDIF}
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+{$IFDEF DELPHIXE}
+
+class function TJSONUtil.GetJSONArrayFromStringList(const AStringList: TStringList): TJSONArray;
+var
+  i: Integer;
+begin
+  Result := TJSONArray.Create;
+  if Assigned(AStringList) then
+  begin
+    for i := 0 to AStringList.Count - 1 do
+      Result.Add(AStringList[i]);
+  end;
+end;
+{$ENDIF}
+
+
+class function TJSONUtil.GetObj(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string): {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF};
+begin
+  try
+{$IFDEF DELPHIXE}
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(pParametro) is TJSONObject) then begin
+      Result := TJSONObject(pJSONObject.GetValue(pParametro));
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONObject) then begin
+      Result := TJSONObject(pJSONObject.GetValue(LowerCase(pParametro)));
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONObject) then begin
+      Result := TJSONObject(pJSONObject.GetValue(UpperCase(pParametro)));
+    end else begin
+      Result := nil;
+    end;
+{$ELSE}
+    if Assigned(pJSONObject) and (pJSONObject.Field[pParametro] is TlkJSONobject) then begin
+      Result := pJSONObject.Field[pParametro] as TlkJSONobject;
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONobject) then begin
+      Result := pJSONObject.Field[LowerCase(pParametro)] as TlkJSONobject;
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONobject) then begin
+      Result := pJSONObject.Field[UpperCase(pParametro)] as TlkJSONobject;
+    end else begin
+      Result := nil;
+    end;
+{$ENDIF}
+  except
+    on e: Exception do begin
+      Result := nil;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '".');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetStr(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: string; pTrataQuebra: Boolean): string;
+var
+  cStr: string;
+begin
+  try
+{$IFDEF DELPHIXE}
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(pParametro) is TJSONString) then begin
+      cStr := TJSONString(pJSONObject.GetValue(pParametro)).Value;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONString) then begin
+      cStr := TJSONString(pJSONObject.GetValue(Lowercase(pParametro))).Value;
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONString) then begin
+      cStr := TJSONString(pJSONObject.GetValue(Uppercase(pParametro))).Value;
+    end else begin
+      cStr := pDefault;
+    end;
+{$ELSE}
+    if Assigned(pJSONObject) and (pJSONObject.Field[pParametro] is TlkJSONstring) then begin
+      cStr := pJSONObject.getString(pParametro);
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[LowerCase(pParametro)] is TlkJSONstring) then begin
+      cStr := pJSONObject.getString(Lowercase(pParametro));
+    end else if Assigned(pJSONObject) and (pJSONObject.Field[UpperCase(pParametro)] is TlkJSONstring) then begin
+      cStr := pJSONObject.getString(Uppercase(pParametro));
+    end else begin
+      cStr := pDefault;
+    end;
+{$ENDIF}
+    //Result := LimpaString(StringReplace(cStr,'\\','\',[rfReplaceAll]));
+    if not pTrataQuebra then
+      Result := LimpaString(cStr)
+    else
+      Result := StringReplace(LimpaString(cStr), '\n', sLineBreak, [rfReplaceAll]);
+  except
+    on e: Exception do
+    begin
+      Result := pDefault;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.GetStrList(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string; pDefault: TStringList = nil; pTrataQuebra: Boolean = False): TStringList;
+{$IFDEF DELPHIXE}
+var
+  oJSONArray: TJSONArray;
+  i: Integer;
+  cStr: string;
+{$ENDIF}
+begin
+  Result := nil;
+
+{$IFDEF DELPHIXE}
+  try
+    if Assigned(pJSONObject) and (pJSONObject.GetValue(pParametro) is TJSONArray) then begin
+      oJSONArray := TJSONArray(pJSONObject.GetValue(pParametro));
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(LowerCase(pParametro)) is TJSONArray) then begin
+      oJSONArray := TJSONArray(pJSONObject.GetValue(Lowercase(pParametro)));
+    end else if Assigned(pJSONObject) and (pJSONObject.GetValue(UpperCase(pParametro)) is TJSONArray) then begin
+      oJSONArray := TJSONArray(pJSONObject.GetValue(Uppercase(pParametro)));
+    end else begin
+      Result := pDefault;
+      Exit;
+    end;
+
+    if Assigned(oJSONArray) then begin
+      Result := TStringList.Create;
+
+      for i  := 0 to oJSONArray.Count - 1 do begin
+        cStr := oJSONArray.Items[i].Value;
+        if not pTrataQuebra then
+          cStr := LimpaString(cStr)
+        else
+          cStr := StringReplace(LimpaString(cStr), '\n', sLineBreak, [rfReplaceAll]);
+        Result.Add(cStr);
+      end;
+    end;
+  except
+    on e: Exception do begin
+      Result := nil;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+
+{$ELSE}
+  raise Exception.Create('TJSONUtil.GetStrList n„o implementado');
+{$ENDIF}
+end;
+
+class function TJSONUtil.GetValue(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pParametro: string): {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF};
+begin
+  try
+{$IFDEF DELPHIXE}
+    Result := pJSONObject.GetValue(pParametro);
+    if Result = nil then begin
+      Result := pJSONObject.GetValue(LowerCase(pParametro));
+      if Result = nil then begin
+        Result := pJSONObject.GetValue(UpperCase(pParametro));
+      end;
+    end;
+{$ELSE}
+    Result := pJSONObject.Field[pParametro];
+    if Result = nil then begin
+      Result := pJSONObject.Field[LowerCase(pParametro)];
+      if Result = nil then begin
+        Result := pJSONObject.Field[UpperCase(pParametro)];
+      end;
+    end;
+{$ENDIF}
+  except
+    on e: Exception do begin
+      Result := nil;
+      raise Exception.Create('Erro ao acessar o valor do parametro "' + pParametro + '"');
+    end;
+  end;
+end;
+
+class function TJSONUtil.LimpaString(cStr: AnsiString): AnsiString;
+var
+  i, iLength: Integer;
+  cLetra: string;
+begin
+  Result  := '';
+  iLength := Length(cStr);
+
+  if iLength = 0 then
+    Exit;
+
+  for I    := 1 to iLength do begin
+    cLetra := Copy(cStr, I, 1);
+    if Pos(cLetra, GetCaracteresValidos) > 0 then
+      Result := Result + Copy(cStr, I, 1);
+  end;
+end;
+
+{$IFDEF DELPHIXE}
+
+
+class function TJSONUtil.ParseJSONValue(const pStrJson: string): TJSONValue;
+begin
+  Result := TJSONObject.ParseJSONValue(TEncoding.ASCII.GetBytes(pStrJSON), 0);
+end;
+{$ENDIF}
+
+
+class procedure TJSONUtil.RemovePair(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; pName: string);
+begin
+{$IFDEF DELPHIXE}
+  pJSONObject.RemovePair(pName);
+  pJSONObject.RemovePair(LowerCase(pName));
+  pJSONObject.RemovePair(UpperCase(pName));
+{$ELSE}
+  {
+   pJSONObject.RemovePair(pName);
+   pJSONObject.GetValue(LowerCase(pName));
+   pJSONObject.GetValue(UpperCase(pName));
+  }
+{$ENDIF}
+end;
+
+class function TJSONUtil.NewJSONObjet(): {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF};
+begin
+{$IFDEF DELPHIXE}
+  Result := TJSONObject.Create;
+{$ELSE}
+  Result := TlkJSONobject.Create;
+{$ENDIF}
+end;
+
+class function TJSONUtil.NewJSONObjetList(): {$IFDEF DELPHIXE}TJSONArray{$ELSE}TlkJSONlist{$ENDIF};
+begin
+{$IFDEF DELPHIXE}
+  Result := TJSONArray.Create;
+{$ELSE}
+  Result := TlkJSONlist.Create;
+{$ENDIF}
+end;
+
+class procedure TJSONUtil.Add(pJSONObjet: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; const pChave: string; pValor: {$IFDEF DELPHIXE}TJSONValue{$ELSE}TlkJSONbase{$ENDIF});
+begin
+{$IFDEF DELPHIXE}
+  pJSONObjet.AddPair(pChave, pValor);
+{$ELSE}
+  pJSONObjet.Add(pChave, pValor);
+{$ENDIF}
+end;
+
+class procedure TJSONUtil.Add(pJSONObjetList: {$IFDEF DELPHIXE}TJSONArray{$ELSE}TlkJSONlist{$ENDIF}; pValor: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF});
+begin
+{$IFDEF DELPHIXE}
+  pJSONObjetList.AddElement(pValor);
+{$ELSE}
+  pJSONObjetList.Add(pValor);
+{$ENDIF}
+end;
+
+{$IFDEF DELPHIXE}
+
+class procedure TJSONUtil.AddArrayStr(var jsonObj: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}; const name: string; const values: array of string);
+var
+  jsonArray: TJSONArray;
+  value: string;
+begin
+  jsonArray := TJSONArray.Create;
+  try
+    for value in values do
+      jsonArray.Add(value);
+    jsonObj.AddPair(name, jsonArray);
+  except
+    jsonArray.Free;
+  end;
+end;
+{$ENDIF}
+
+{$IFDEF DELPHIXE}
+
+
+class function TJSONUtil.ToJSONObject(pObjeto: TObject): {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF};
+var
+  Contexto: TRttiContext;
+  TypObj: TRttiType;
+  Prop: TRttiProperty;
+begin
+  result   := TJSONObject.Create;
+  Contexto := TRttiContext.Create;
+  TypObj   := Contexto.GetType(TObject(pObjeto).ClassInfo);
+  for Prop in TypObj.GetProperties do begin
+    if (Prop.PropertyType.TypeKind = tkInteger) then begin
+      // Integer
+      result.AddPair(Prop.Name, SetInt(Prop.GetValue(pObjeto).AsInteger));
+    end else if Prop.PropertyType.TypeKind = tkFloat then begin
+      // Currency
+      result.AddPair(Prop.Name, SetCurr(Prop.GetValue(pObjeto).AsCurrency));
+    end else if (Prop.PropertyType.TypeKind = tkEnumeration) and
+       ((Prop.GetValue(pObjeto).ToString = 'False') or
+         (Prop.GetValue(pObjeto).ToString = 'True')) then begin
+      // Boolean
+      result.AddPair(Prop.Name, SetBool(Prop.GetValue(pObjeto).AsBoolean));
+    end else begin
+      // String
+      result.AddPair(Prop.Name, SetStr(Prop.GetValue(pObjeto).ToString));
+    end;
+  end;
+end;
+{$ENDIF}
+
+
+class function TJSONUtil.Vazio(pJSONObject: {$IFDEF DELPHIXE}TJSONObject{$ELSE}TlkJSONobject{$ENDIF}): Boolean;
+begin
+{$IFDEF DELPHIXE}
+  Result := (not(Assigned(pJSONObject))) or
+     (pJSONObject.Null) or
+     (pJSONObject.ToJSON = '""') or
+     (pJSONObject.ToJSON = 'null') or
+     (pJSONObject.ToJSON = '');
+{$ELSE}
+  Result := (not(Assigned(pJSONObject))) or
+     (pJSONObject.SelfType = jsNull) or
+     (pJSONObject.Value = '""') or
+     (pJSONObject.Value = 'null') or
+     (pJSONObject.Value = '');
+{$ENDIF}
+end;
+
+end.

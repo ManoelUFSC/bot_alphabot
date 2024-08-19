@@ -1,0 +1,165 @@
+object frmAutomatedAlphabot: TfrmAutomatedAlphabot
+  Left = 0
+  Top = 0
+  Caption = 'Automated Alphabot'
+  ClientHeight = 419
+  ClientWidth = 387
+  Color = clBtnFace
+  Constraints.MinHeight = 478
+  Constraints.MinWidth = 403
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  Menu = mmMenuPrincipal
+  OldCreateOrder = False
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  PixelsPerInch = 96
+  TextHeight = 13
+  object pnPrincipal: TPanel
+    Left = 0
+    Top = 0
+    Width = 387
+    Height = 305
+    Align = alClient
+    TabOrder = 0
+    object btRegistrar: TSpeedButton
+      Left = 12
+      Top = 30
+      Width = 153
+      Height = 33
+      Caption = 'Iniciar'
+      OnClick = btRegistrarClick
+    end
+    object Panel1: TPanel
+      Left = 1
+      Top = 177
+      Width = 385
+      Height = 127
+      Align = alBottom
+      TabOrder = 0
+      object Label1: TLabel
+        Left = 6
+        Top = 9
+        Width = 158
+        Height = 13
+        Caption = 'Raffles registradas com sucesso:'
+      end
+      object lb_Avaliacao: TLabel
+        Left = 170
+        Top = 9
+        Width = 124
+        Height = 13
+        Caption = 'Per'#237'odo de Avalia'#231#227'o: '
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clRed
+        Font.Height = -11
+        Font.Name = 'Tahoma'
+        Font.Style = [fsBold]
+        ParentFont = False
+      end
+      object mmRetorno: TMemo
+        Left = 1
+        Top = 32
+        Width = 383
+        Height = 94
+        Align = alBottom
+        Color = clCream
+        ScrollBars = ssVertical
+        TabOrder = 0
+      end
+    end
+    object pnConsultas: TPanel
+      Left = 201
+      Top = 1
+      Width = 185
+      Height = 176
+      Align = alRight
+      Anchors = [akLeft, akTop, akRight, akBottom]
+      TabOrder = 1
+      object mmConsultas: TMemo
+        Left = 1
+        Top = 1
+        Width = 183
+        Height = 174
+        Align = alClient
+        Color = clCream
+        ScrollBars = ssVertical
+        TabOrder = 0
+      end
+    end
+    object bt_LimpaInformacoes: TButton
+      Left = 12
+      Top = 69
+      Width = 153
+      Height = 33
+      Caption = 'Limpar Informa'#231#245'es'
+      TabOrder = 2
+      OnClick = bt_LimpaInformacoesClick
+    end
+  end
+  object pnResposta: TPanel
+    Left = 0
+    Top = 305
+    Width = 387
+    Height = 114
+    Align = alBottom
+    TabOrder = 1
+    object gbErros: TGroupBox
+      Left = 1
+      Top = 8
+      Width = 385
+      Height = 105
+      Align = alBottom
+      Caption = 'Erros ocorridos:'
+      TabOrder = 0
+      object mmErrosOcorridos: TMemo
+        Left = 2
+        Top = 15
+        Width = 381
+        Height = 88
+        Align = alClient
+        Color = clCream
+        ReadOnly = True
+        TabOrder = 0
+      end
+    end
+  end
+  object mmMenuPrincipal: TMainMenu
+    Left = 56
+    Top = 88
+    object Arquivo1: TMenuItem
+      Caption = '&Arquivo'
+      object Wallets1: TMenuItem
+        Caption = '&Configuracoes'
+        OnClick = Wallets1Click
+      end
+      object N2: TMenuItem
+        Caption = '-'
+      end
+      object Fechar1: TMenuItem
+        Caption = '&Fechar'
+      end
+    end
+    object Sobre1: TMenuItem
+      Caption = 'Ajuda'
+      object Sobre2: TMenuItem
+        Caption = '&Sobre'
+        OnClick = Sobre2Click
+      end
+    end
+  end
+  object tm_Registra: TTimer
+    Enabled = False
+    OnTimer = tm_RegistraTimer
+    Left = 112
+    Top = 88
+  end
+  object tm_Horario: TTimer
+    OnTimer = tm_HorarioTimer
+    Left = 112
+    Top = 136
+  end
+end

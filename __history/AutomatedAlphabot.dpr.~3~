@@ -1,0 +1,16 @@
+program AutomatedAlphabot;
+
+uses
+  Vcl.Forms,
+  TTFPrinc in 'TTFPrinc.pas' {frmAutomatedAlphabot},
+  TTUComunicacao in 'TTUComunicacao.pas',
+  TTUTotallACBrUtil in 'TTUTotallACBrUtil.pas';
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TfrmAutomatedAlphabot, frmAutomatedAlphabot);
+  Application.Run;
+end.

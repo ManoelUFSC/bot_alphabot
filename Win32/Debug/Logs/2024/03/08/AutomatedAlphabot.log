@@ -1,0 +1,12 @@
+
+08/03/2024 01:31:38
+TTotallACBrHTTP.HTTPPost:
+URL: https://api.alphabot.app/v1/raffles
+Requisição: TMemoryStream
+Erro: Erro HTTP: 404 Not Found
+Socket Error: 0 
+URL: https://api.alphabot.app/v1/raffles
+
+Resposta HTTP:
+{"success":false,"errors":[{"message":"Invalid method POST."}]}
+

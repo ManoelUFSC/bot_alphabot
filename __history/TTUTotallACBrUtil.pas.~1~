@@ -1,0 +1,3745 @@
+{**
+ * Unit para a classe TTotallACBrHelper.
+ *
+ * Manutenções:
+ *
+ * Customizações:
+ *
+ * @Author  Totall Sistemas Ltda
+ *}
+
+unit TTUTotallACBrUtil;
+
+interface
+
+uses
+  Classes,
+  SysUtils,
+  StrUtils,
+  IniFiles,
+  blcksock,
+  Math,
+{ TODO -oTotali -cInfo :
+Adicionado o "MidasLib" para embedar a "Midas.dll" a aplicação pois em algumas maquina mesmo transferindo a DLL e registrando não executava.
+https://www.projetoacbr.com.br/forum/topic/62378-problema-tacbrnfedanfefrcreatenil/ }
+  MidasLib,
+  pcnConversao,
+  pcnConversaoNFe,
+  pcnNFe,
+  ACBrNFSeXConversao,
+{$IFDEF DELPHIXE}
+  ACBrUtil.Strings,
+  ACBrUtil.FilesIO,
+{$ELSE}
+  ACBrUtil,
+{$ENDIF}
+  ACBrDFeSSL,
+  ACBrDFeConfiguracoes,
+  ACBrNFeConfiguracoes,
+  ACBrNFSeXConfiguracoes,
+  ACBrNFe,
+  ACBrPosPrinter,
+  ACBrDFeDANFeReport,
+  ACBrNFeDANFEClass,
+  ACBrNFeDANFeESCPOS,
+  ACBrNFeDANFEFR,
+  ACBrNFSeXDANFSeFR,
+  ACBrSAT,
+  ACBrSATExtratoESCPOS,
+  ACBrBoleto,
+  ACBrBoletoFCFR,
+  ACBrValidador,
+  ACBrPAF,
+  ACBrBlocoX_Comum,
+  ACBrBlocoX,
+  ACBrBase,
+  ACBrSocket,
+  ACBrConsultaCNPJ,
+  ACBrConsultaCPF,
+  ACBrNFSeX,
+  ACBrETQ,
+  ACBrCHQ,
+  ACBrBAL,
+  ACBrDevice,
+  ACBrPAFRegistros,
+  pcnAuxiliar,
+  TTUConsts,
+  TTUEnumeradores,
+  TTUConversoesACBr,
+  TTUFuncoes,
+  TTUCfgEmpresa,
+  TTUContaBancaria,
+  TTURetorno,
+  TTUCfgSAT,
+  TTUCfgProxy,
+  TTUImpressora,
+  TTUCfgDevice,
+  ACBrCTe,
+  ACBrCTeDACTEFR,
+  pcteConversaoCTe,
+  ACBrCTeConfiguracoes,
+  ACBrMDFe,
+  ACBrLCB,
+  pmdfeConversaoMDFe,
+  ACBrMDFeDAMDFEFR,
+  ACBrSATWS;
+
+type
+
+  TTotallACBrHTTP = class(TACBrHTTP)
+  public
+    procedure HTTPGet(const AURL: string); override;
+    procedure HTTPPost(const AURL: string); override;
+  end;
+
+  TTotallACBrHelper = class
+  strict private
+    class function PathDefaultArquivos: string;
+
+  const
+    // Nome dos arquivos padrão para DANFE da NFe
+    FileNameReport_NFe_DANFE_Retrato = 'DANFeRetrato_Totali.fr3';
+    FileNameReport_NFe_DANFE_Paisagem = 'DANFePaisagem_Totali.fr3';
+    FileNameReport_NFe_DANFE_Evento = 'EVENTOS.fr3';
+    FileNameReport_NFe_DANFE_Inutilizacao = 'INUTILIZACAO.fr3';
+    FileNameReport_NFe_DANFE_Retrato_EME4 = 'DANFeRetrato_EME4.fr3';
+    FileNameReport_NFe_DANFE_Retrato_EME4_EmitTimbrado = 'DANFeRetrato_EME4_EmitTimbrado.fr3';
+
+    // Nome dos arquivos padrão para DACTE da CTe
+    FileNameReport_CTe_DACTE_Retrato = 'DACTE_RETRATO.fr3';
+    FileNameReport_CTe_DACTE_Paisagem = 'DACTE_PAISAGEM.fr3';
+    FileNameReport_CTe_DACTE_Evento = 'DACTE_EVENTOS.fr3';
+    FileNameReport_CTe_DACTE_Inutilizacao = 'DACTE_INUTILIZACAO.fr3';
+
+    // Nome dos arquivos padrão para DAMDFE da MDFe
+    FileNameReport_MDFe_DAMDFE_Retrato = 'DAMDFe_Retrato.fr3';
+    FileNameReport_MDFe_DAMDFE_Paisagem = 'DAMDFe_Paisagem.fr3';
+    FileNameReport_MDFe_DAMDFE_Evento = 'EVENTOS_MDFE.fr3';
+
+    // Nome dos arquivos padrão para DANFE da NFCe
+    FileNameReport_NFCe_DANFE_Bobina = 'DANFeNFCe_Totali.fr3';
+    FileNameReport_NFCe_DANFE_Bobina_EME4 = 'DANFeNFCe_EME4.fr3';
+    FileNameReport_NFCe_DANFE_A4 = 'DANFeNFCe_A4.fr3';
+    // Nome dos arquivos padrão para DANFE do SAT
+    //FileNameReport_SAT_DANFE_Bobina = 'DASATPadrao_Totali.fr3';
+
+    // Nome dos arquivos padrão para DANFE da NFCe
+    FileNameReport_NM_DANFE_Bobina = 'DANFeNM_Totali.fr3';
+    FileNameReport_NM_DANFE_Bobina_EME4 = 'DANFeNM_EME4.fr3';
+    FileNameReport_NM_DANFE_A4 = 'DANFeNM_A4.fr3';
+
+    // Nome dos arquivos padrão para DANFE da NFSe
+    FileNameReport_NFSeX_DANFE_Retrato = 'DANFSeRetrato_Totali.fr3';
+
+    // Nome dos arquivos padrão para Boleto
+    FileNameReport_Boleto_Padrao = 'Boleto.fr3';
+    FileNameReport_Boleto_Carne = 'BoletoCarne.fr3';
+    FileNameReport_Boleto_Fatura = 'BoletoFatura.fr3';
+    FileNameReport_Boleto_PadraoEntrega = 'BoletoEntrega.fr3';
+
+  private
+    class function GetSSLType(): TSSLType;
+    class function GetTimeZoneModoDeteccao: TTimeZoneModoDeteccao;
+    class function GetSSLType_PorMunicipio(pCodIBGE_Mun: Integer): TSSLType;
+    class function GetSSLLib(): TSSLLib;
+    class function GetSSLCryptLib(): TSSLCryptLib;
+    class function GetSSLHttpLib(): TSSLHttpLib;
+    class function GetSSLXmlSignLib(): TSSLXmlSignLib;
+    class function GetVersaoQRCode(pUF: string = ''): string;
+    class function GetCamposFatObrigatorios: Boolean;
+    class function GetDataNT2018_005_vICMSSubstituto: TDate;
+    class function GetDataNT2018_005_CSRT: TDate;
+    class function GetDataNT2020_006: TDate;
+    class function GetSistema: string;
+    class procedure ConfiguracaoGeralConfSSL(pGeralConf: TGeralConf);
+    class function GetFileNameReportNFCe(pUsaFormatoA4: Boolean): string;
+    class function GetFileNameReportNM(pUsaFormatoA4: Boolean): string;
+
+    class procedure SetCertificado(GeralConf: TGeralConf;
+      CertificadosConf: TCertificadosConf;
+      const pPathCertificado: string;
+      const pSenhaCertificado: string;
+      const pNumeroSerieCertificado: string);
+
+    class procedure SetCSC(GeralConfNFe: TGeralConfNFe;
+      const pCSC: string;
+      const pIdCSC: string);
+
+    class procedure SetWebServices(WebServices: TWebServicesConf;
+      const pCfgEmpresa: TCfgEmpresa;
+      const pModelo: TEnumModeloDocumento = mdVazio);
+    class procedure SetCSRT(pRespTecConf: TRespTecConf;
+      const pIdCSRT: Integer;
+      const pCSRT: string);
+
+    class function ACBrNFeNew(const pPathCertificado: string;
+      const pSenhaCertificado: string;
+      const pNumeroSerieCertificado: string;
+      const pCSC: string;
+      const pIdCSC: string;
+      const pIdCSRT: Integer;
+      const pCSRT: string): TACBrNFe;
+
+    class function ACBrCTeNew(const pPathCertificado: string;
+      const pSenhaCertificado: string;
+      const pNumeroSerieCertificado: string;
+      const pCSC: string;
+      const pIdCSC: string;
+      const pIdCSRT: Integer;
+      const pCSRT: string): TACBrCTe;
+
+    class function ACBrMDFeNew(const pPathCertificado: string;
+      const pSenhaCertificado: string;
+      const pNumeroSerieCertificado: string;
+      const pCSC: string;
+      const pIdCSC: string;
+      const pIdCSRT: Integer;
+      const pCSRT: string): TACBrMDFe;
+
+    class procedure ConfiguracaoTACBrDeviceCfgDevice(ACBrDevice: TACBrDevice;
+      const pCfgDevice: TCfgDevice);
+
+    class procedure CriaDiretorios();
+    class function GetFileReport(pLayoutBoleto: TEnumLayoutBoleto; pArquivoPersonalizado: string; pCodigoBanco: string): string;
+  public
+    class procedure ACBrGravarLog(const ALogLine: string; var Tratado: Boolean);
+    class procedure ConfiguracaoDFeSSL(pDFeSSL: TDFeSSL; const pCfgEmpresa: TCfgEmpresa);
+    class function DFeSSLNew(const pCfgEmpresa: TCfgEmpresa): TDFeSSL;
+    class function GetImprimeEmUmaLinha(): Boolean;
+
+    class function PathSchemasTACBrNFeVersaoDF(const pAmbiente: TpcnTipoAmbiente;
+      const pModeloDF: TEnumModeloDocumento;
+      const pVersao: TpcnVersaoDF;
+      const pUsaNT_2018_005: Boolean;
+      const pUsaNT_2020_006: Boolean): string;
+
+    class function PathSchemasTACBrCTeVersaoDF(const pAmbiente: TpcnTipoAmbiente; const pVersao: TVersaoCTe): string;
+
+    class function PathSchemasTACBrNFSeX(const pAmbiente: TpcnTipoAmbiente): string;
+
+    class function PathSchemasTACBrMDFeVersaoDF(const pAmbiente: TpcnTipoAmbiente; const pVersao: TVersaoMDFe): string;
+
+    class procedure ConfiguracaoTACBrNFeCfgEmpresa(
+      ACBrNFe: TACBrNFe;
+      const pModelo: TEnumModeloDocumento = mdNFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       );
+
+    class procedure ConfiguracaoTACBrCTeCfgEmpresa(
+      ACBrCTe: TACBrCTe;
+      const pModelo: TEnumModeloDocumento = mdCTe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       );
+
+    class procedure ConfiguracaoTACBrMDFeCfgEmpresa(
+      ACBrMDFe: TACBrMDFe;
+      const pModelo: TEnumModeloDocumento = mdMDFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       );
+
+    class function CreateTACBrNFeCfgEmpresa(
+      const pModelo: TEnumModeloDocumento = mdNFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrNFe;
+
+    class function CreateTACBrNFSeXCfgEmpresa(
+      const pModelo: TEnumModeloDocumento = mdNFSe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrNFSeX;
+
+    class function CreateTACBrCTeCfgEmpresa(
+      const pModelo: TEnumModeloDocumento = mdCTe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrCTe;
+
+    class function CreateTACBrMDFeCfgEmpresa(
+      const pModelo: TEnumModeloDocumento = mdMDFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrMDFe;
+
+    class function CreateTACBrNFeParans(
+      const pModelo: TEnumModeloDocumento = mdNFe;
+      const pPathCertificado: string = '';
+      const pSenhaCertificado: string = '';
+      const pNumeroSerieCertificado: string = '';
+      const pCSC: string = '';
+      const pIdCSC: string = '';
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrNFe;
+
+    class function CreateTACBrNFSeXParans(
+      const pModelo: TEnumModeloDocumento = mdNFSe;
+      const pPathCertificado: string = '';
+      const pSenhaCertificado: string = '';
+      const pNumeroSerieCertificado: string = '';
+      const pCSC: string = '';
+      const pIdCSC: string = '';
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrNFSeX;
+
+    class function CreateTACBrCTeParans(
+      const pModelo: TEnumModeloDocumento = mdCTe;
+      const pPathCertificado: string = '';
+      const pSenhaCertificado: string = '';
+      const pNumeroSerieCertificado: string = '';
+      const pCSC: string = '';
+      const pIdCSC: string = '';
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrCTe;
+
+    class function CreateTACBrMDFeParans(
+      const pModelo: TEnumModeloDocumento = mdMDFe;
+      const pPathCertificado: string = '';
+      const pSenhaCertificado: string = '';
+      const pNumeroSerieCertificado: string = '';
+      const pCSC: string = '';
+      const pIdCSC: string = '';
+      const pIdCSRT: Integer = 0;
+      const pCSRT: string = ''
+       ): TACBrMDFe;
+
+    class function CreateTACBrNFePadrao(const pModelo: TEnumModeloDocumento = mdNFe): TACBrNFe;
+    class function CreateTACBrNFSeXPadrao(const pModelo: TEnumModeloDocumento = mdNFSe): TACBrNFSeX;
+    class function CreateTACBrCTePadrao(const pModelo: TEnumModeloDocumento = mdCTe): TACBrCTe;
+    class function CreateTACBrMDFePadrao(const pModelo: TEnumModeloDocumento = mdMDFe): TACBrMDFe;
+
+    class procedure SetModeloACBrPosPrinter(const ACBrPosPrinter: TACBrPosPrinter;
+      const pModelo: TEnumModeloImpressora);
+
+    class function ACBrPosPrinterNew(const pModelo: TEnumModeloImpressora): TACBrPosPrinter;
+    class function ACBrNFeDANFeESCPOSNew(ACBrNFe: TACBrNFe;
+      const ACBrPosPrinter: TACBrPosPrinter): TACBrNFeDANFeESCPOS;
+
+    class procedure ConfiguracaoTACBrNFeDANFEFR(ACBrNFeDANFEFR: TACBrNFeDANFEFR;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False);
+
+    class procedure ConfiguracaoTACBrCTeDACTEFR(ACBrCTeDACTEFR: TACBrCTeDACTEFR;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False);
+
+    class procedure ConfiguracaoTACBrMDFeDAMDFEFR(ACBrMDFeDAMDFEFR: TACBrMDFeDAMDFEFR;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False);
+
+    class procedure ConfiguracaoTACBrNFeDANFCEFR(ACBrNFeDANFCEFR: TACBrNFeDANFCEFR;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False;
+      const pEhNotaManual: Boolean = False);
+
+    class procedure ConfiguracaoTACBrNFeDANFEFREvento(ACBrNFeDANFEFR: TACBrNFeDANFEFR;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True);
+
+    class procedure ConfiguracaoTACBrCTeDACTEFREvento(ACBrCTeDACTEFR: TACBrCTeDACTEFR;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True);
+
+    class function ACBrNFeDANFEFRNew(ACBrNFe: TACBrNFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False): TACBrNFeDANFEFR;
+
+    class function ACBrCTeDACTEFRNew(ACBrCTe: TACBrCTe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False): TACBrCTeDACTEFR;
+
+    class function ACBrMDFeDAMDFEFRNew(ACBrMDFe: TACBrMDFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False): TACBrMDFeDAMDFEFR;
+
+    class function ACBrNFeDANFCEFRNew(ACBrNFe: TACBrNFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False;
+      const pEhNotaManual: Boolean = False): TACBrNFeDANFCEFR;
+
+    class function ACBrNFeDANFCEFRNewParans(ACBrNFe: TACBrNFe;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True;
+      const pEhPrevia: Boolean = False;
+      const pEhNotaManual: Boolean = False): TACBrNFeDANFCEFR;
+
+    class function ACBrNFeDANFEFREventoNew(ACBrNFe: TACBrNFe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True): TACBrNFeDANFEFR;
+
+    class function ACBrCTeDACTEFREventoNew(ACBrCTe: TACBrCTe;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True): TACBrCTeDACTEFR;
+
+    class function ACBrSATExtratoESCPOSNew(const ACBrPosPrinter: TACBrPosPrinter): TACBrSATExtratoESCPOS;
+    class procedure ConfiguracaoTACBrSATCfgSAT(ACBrSAT: TACBrSAT;
+      const pCfgSAT: TCfgSAT);
+    class procedure ConfiguracaoTACBrSATCfgEmpresa(ACBrSAT: TACBrSAT;
+      const pCfgEmpresa: TCfgEmpresa);
+    class procedure ConfiguracaoTACBrSATCfgSATCfgEmpresa(ACBrSAT: TACBrSAT;
+      const pCfgSAT: TCfgSAT = nil;
+      const pCfgEmpresa: TCfgEmpresa = nil);
+    class function ACBrSATNew(const pCfgSAT: TCfgSAT = nil;
+      const pCfgEmpresa: TCfgEmpresa = nil): TACBrSAT;
+    class function SATEmProcessamento(const pCodigoDeRetorno: Integer): Boolean;
+
+    class function ACBrBoletoFCFRNew(const pContaBancaria: TContaBancaria;
+      const pCfgEmpresa: TCfgEmpresa;
+      const pNomeImpressora: string): TACBrBoletoFCFR;
+    class procedure ConfiguracaoTACBrBoletoContaBancaria(ACBrBoleto: TACBrBoleto; const pContaBancaria: TContaBancaria = nil);
+    class function ACBrBoletoNew(const pContaBancaria: TContaBancaria = nil): TACBrBoleto;
+    class function GetDirBoletoPDF(): string;
+
+    class function ValidarInscEst(pIE, pUF: string): TRetorno;
+
+    class function ACBrPAFNew(const pDesenvCnpj: string;
+      const pDesenvIE: string;
+      const pDesenvIM: string;
+      const pDesenvNome: string;
+      const pDesenvUF: string;
+      const pPAFECFNome: string;
+      const pPAFECFVersao: string;
+      const pPAFECFLaudo: string;
+      const pLayoutPAFNFCe: Boolean = false): TACBrPAF;
+
+    class function ACBrPAFNew2: TACBrPAF;
+
+    class procedure ConfiguracaoTACBrBlocoXCfgEmpresa(ACBrBlocoX: TACBrBlocoX;
+      const pCfgEmpresa: TCfgEmpresa);
+
+    class function ACBrBlocoXNew(const pDesenvCnpj: string;
+      const pDesenvIE: string;
+      const pDesenvIM: string;
+      const pDesenvNome: string;
+      const pPAFECFNome: string;
+      const pPAFECFVersao: string;
+      const pPAFECFCredenciamento: string;
+      const pValidaDesenvolvedor: Boolean = False;
+      const pValidaPAFECF: Boolean = False;
+      const pCfgEmpresa: TCfgEmpresa = nil): TACBrBlocoX;
+
+    class procedure ConfiguracaoTACBrConsultaCNPJCfgEmpresa(ACBrConsultaCNPJ: TACBrConsultaCNPJ);
+    class function ACBrConsultaCNPJNew(): TACBrConsultaCNPJ;
+    class procedure ConfiguracaoTACBrConsultaCPFCfgEmpresa(ACBrConsultaCPF: TACBrConsultaCPF);
+    class function ACBrConsultaCPFNew(): TACBrConsultaCPF;
+
+    class procedure ConfiguracaoTACBrNFSeXDANFSeFR(ACBrNFSeXDANFSeFR: TACBrNFSeXDANFSeFR;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True);
+
+    class function ACBrNFSeXDANFSeFRNew(ACBrNFSeX: TACBrNFSeX;
+      const pCfgEmpresa: TCfgEmpresa = nil;
+      const pImpressora: string = '';
+      const pSetImpressora: Boolean = True): TACBrNFSeXDANFSeFR;
+
+    class procedure ConfiguracaoTACBrNFSeXCfgEmpresa(ACBrNFSeX: TACBrNFSeX; const pCfgEmpresa: TCfgEmpresa);
+
+    class function ACBrNFSeXNew(pOwner: TComponent; pCfgEmpresa: TCfgEmpresa; pCfgProxy: TCfgProxy; pDANFE: Boolean = False): TACBrNFSeX;
+
+    class procedure ConfiguracaoACBrETQImpressora(ACBrETQ: TACBrETQ; const pImpressora: TImpressora);
+    class function ACBrETQNew(const pImpressora: TImpressora): TACBrETQ;
+
+    class procedure ConfiguracaoTACBrCHQCfgDevice(ACBrCHQ: TACBrCHQ;
+      const pModelo: TACBrCHQModelo;
+      const pCfgDevice: TCfgDevice;
+      const pArquivoBemaFiINI: string = '');
+    class function ACBrCHQNew(const pModelo: TACBrCHQModelo;
+      const pCfgDevice: TCfgDevice;
+      const pArquivoBemaFiINI: string = ''): TACBrCHQ;
+
+    class procedure ConfiguracaoTACBrBALCfgDevice(ACBrBAL: TACBrBAL;
+      const pModelo: TACBrBALModelo;
+      const pCfgDevice: TCfgDevice);
+    class function ACBrBALNew(const pModelo: TACBrBALModelo;
+      const pCfgDevice: TCfgDevice): TACBrBAL;
+
+    class function TotallACBrHTTPNew(const pCfgEmpresa: TCfgEmpresa; const pCfgProxy: TCfgProxy): TTotallACBrHTTP;
+
+    class function GetEmpresaResponsavel: TEnumEmpresaResponsavel;
+    class function ACBrDeviceNew(const pCfgDevice: TCfgDevice): TACBrDevice;
+    class function ACBrLCBNew(const pCfgDevice: TCfgDevice; const pSufixo: string): TACBrLCB;
+
+    class procedure ConfiguracaoTACBrLCBCfgDevice(ACBrLCB: TACBrLCB; const pCfgDevice: TCfgDevice; const pSufixo: string);
+
+    class procedure ConfiguracaoTACBrSATWSCfgEmpresa(ACBrSATWS: TACBrSATWS; const pCfgEmpresa: TCfgEmpresa);
+    class function ACBrSATWSNew(const pCfgEmpresa: TCfgEmpresa): TACBrSATWS;
+  end;
+
+implementation
+
+uses
+{$IFNDEF WSLocal}
+{$IFNDEF WSServiceMonitor}
+  TTUMiddleware,
+{$ENDIF}
+{$ENDIF}
+  TTUTotallException,
+  TTUServicoSO,
+  TTUServerUtils;
+
+{ TTotallACBrHelper }
+
+class function TTotallACBrHelper.SATEmProcessamento(const pCodigoDeRetorno: Integer): Boolean;
+begin
+  case pCodigoDeRetorno of
+    5098, 6098, 7098, 8098, 10098, 11098, 12098, 13098, 14098, 15098, 16098, 17098, 18098: begin
+        Result := True;
+      end;
+    else
+         Result := False;
+  end;
+end;
+
+class procedure TTotallACBrHelper.SetCertificado(GeralConf: TGeralConf; CertificadosConf: TCertificadosConf;
+  const pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado: string);
+begin
+  if not Assigned(GeralConf) then
+    raise Exception.Create('Configurações Gerais não informado!');
+  if not Assigned(CertificadosConf) then
+    raise Exception.Create('Configurações do Certificado não informado!');
+
+  Self.ConfiguracaoGeralConfSSL(GeralConf);
+
+  CertificadosConf.ArquivoPFX := AnsiString(pPathCertificado);
+  CertificadosConf.Senha      := AnsiString(pSenhaCertificado);
+  // Utilização de pesquisa pelo Número de Série foi descontinuada
+  //if (Trim(pNumeroSerieCertificado) <> EmptyStr) then begin
+  //  CertificadosConf.NumeroSerie := AnsiString(pNumeroSerieCertificado);
+  //end;
+end;
+
+class procedure TTotallACBrHelper.SetCSC(GeralConfNFe: TGeralConfNFe; const pCSC, pIdCSC: string);
+begin
+  if not Assigned(GeralConfNFe) then
+    raise Exception.Create('Configurações Gerais da NFe não informado!');
+
+  GeralConfNFe.CSC   := pCSC;
+  GeralConfNFe.IdCSC := pIdCSC;
+end;
+
+class procedure TTotallACBrHelper.SetCSRT(pRespTecConf: TRespTecConf; const pIdCSRT: Integer; const pCSRT: string);
+begin
+  if not Assigned(pRespTecConf) then
+    raise Exception.Create('Objeto de Configurações do Responsável Técnico não informado!');
+
+  pRespTecConf.IdCSRT := pIdCSRT;
+  pRespTecConf.CSRT   := pCSRT;
+end;
+
+class procedure TTotallACBrHelper.SetModeloACBrPosPrinter(const ACBrPosPrinter: TACBrPosPrinter; const pModelo: TEnumModeloImpressora);
+begin
+  case pModelo of
+    miNenhuma: begin
+        ACBrPosPrinter.Modelo                     := ppTexto;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miDaruma: begin
+        ACBrPosPrinter.Modelo                     := ppEscDaruma;
+        ACBrPosPrinter.PaginaDeCodigo             := TACBrPosPaginaCodigo.pc1252;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 3;
+      end;
+    miEpson, miSweda: begin
+        ACBrPosPrinter.Modelo                     := ppEscPosEpson;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miBematech: begin
+        ACBrPosPrinter.Modelo                     := ppEscBematech;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miEscVox: begin
+        ACBrPosPrinter.Modelo                     := ppEscVox;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miDiebold: begin
+        ACBrPosPrinter.Modelo                     := ppEscDiebold;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miEpsonP2: begin
+        ACBrPosPrinter.Modelo                     := ppEscEpsonP2;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miCustomPos: begin
+        ACBrPosPrinter.Modelo                     := ppCustomPos;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miPosStar: begin
+        ACBrPosPrinter.Modelo                     := ppEscPosStar;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miZJiang: begin
+        ACBrPosPrinter.Modelo                     := ppEscZJiang;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miGPrinter: begin
+        ACBrPosPrinter.Modelo                     := ppEscGPrinter;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miDatecs: begin
+        ACBrPosPrinter.Modelo                     := ppEscDatecs;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miEscSunmi: begin
+        ACBrPosPrinter.Modelo                     := ppEscSunmi;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+    miExterno: begin
+        ACBrPosPrinter.Modelo                     := ppExterno;
+        ACBrPosPrinter.ConfigQRCode.LarguraModulo := 4;
+      end;
+  end;
+end;
+
+class function TTotallACBrHelper.ValidarInscEst(pIE, pUF: string): TRetorno;
+var
+  oACBrValidador: TACBrValidador;
+begin
+  Result.Tipo     := tfErro;
+  Result.Mensagem := EmptyStr;
+
+  oACBrValidador := TACBrValidador.Create(nil);
+  try
+    oACBrValidador.RaiseExcept    := False;
+    oACBrValidador.AjustarTamanho := True;
+    oACBrValidador.PermiteVazio   := True;
+    oACBrValidador.TipoDocto      := docInscEst;
+    oACBrValidador.Documento      := pIE;
+    oACBrValidador.Complemento    := pUF;
+
+    if oACBrValidador.Validar then begin
+      Result.Tipo     := tfOk;
+      Result.Mensagem := oACBrValidador.DoctoValidado;
+    end else begin
+      Result.Tipo     := tfErro;
+      Result.Mensagem := oACBrValidador.MsgErro;
+    end;
+  finally
+    FreeAndNil(oACBrValidador);
+  end;
+end;
+
+class procedure TTotallACBrHelper.SetWebServices(WebServices: TWebServicesConf; const pCfgEmpresa: TCfgEmpresa; const pModelo: TEnumModeloDocumento);
+begin
+  if not Assigned(WebServices) then
+    raise Exception.Create('WebServices não informado!');
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  WebServices.UF := pCfgEmpresa.WebService.UF;
+
+  WebServices.Ambiente := TConvACBr.ConverteAmbienteSEFAZ(TEnum.AmbienteSEFAZFromInt(pCfgEmpresa.WebService.Ambiente));
+
+  WebServices.Visualizar := False;
+
+  case pModelo of
+    mdNFCe: WebServices.TimeOut := (pCfgEmpresa.WebService.TimeOutNFCe * 1000);
+    mdNFe: WebServices.TimeOut  := (pCfgEmpresa.WebService.TimeOutNFe * 1000);
+    else begin
+        // Definido valor padrão devido a configuração ser utilizada também no processo de tramissão de outros arquivos como Bloco X do PAF-ECF
+        if (pCfgEmpresa.WebService.TimeOutWebService > 0) then begin
+          WebServices.TimeOut := (pCfgEmpresa.WebService.TimeOutWebService * 1000);
+        end else begin
+          WebServices.TimeOut := (1000 * 60); //1 Minuto;
+        end;
+      end;
+  end;
+
+  // Realiza Definição do TimeZone conforme UF da operação utilizado para possibilitar instalação em DataCenter e uso em Filiais de estados distintos
+  WebServices.TimeZoneConf.ModoDeteccao := Self.GetTimeZoneModoDeteccao;
+  //WebServices.TimeZoneConf.TimeZoneStr  := '-03:00';-- Não utilizado Manual pois a opção PCN faz uso conforme o Estado
+
+  // Proxy
+{$IFDEF WSLocal}
+  WebServices.ProxyHost := EmptyStr;
+  WebServices.ProxyPort := EmptyStr;
+  WebServices.ProxyUser := EmptyStr;
+  WebServices.ProxyPass := EmptyStr;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  WebServices.ProxyHost := EmptyStr;
+  WebServices.ProxyPort := EmptyStr;
+  WebServices.ProxyUser := EmptyStr;
+  WebServices.ProxyPass := EmptyStr;
+{$ELSE}
+  WebServices.ProxyHost := puMiddleware.Config.Proxy.Host;
+  WebServices.ProxyPort := IntToStr(puMiddleware.Config.Proxy.Porta);
+  WebServices.ProxyUser := puMiddleware.Config.Proxy.Usuario;
+  WebServices.ProxyPass := puMiddleware.Config.Proxy.Senha;
+{$ENDIF}
+{$ENDIF}
+  WebServices.SSLType := Self.GetSSLType;
+end;
+
+class function TTotallACBrHelper.ACBrBALNew(const pModelo: TACBrBALModelo; const pCfgDevice: TCfgDevice): TACBrBAL;
+begin
+  Result := TACBrBAL.Create(nil);
+
+  Self.ConfiguracaoTACBrBALCfgDevice(Result, pModelo, pCfgDevice);
+end;
+
+class function TTotallACBrHelper.ACBrBlocoXNew(const pDesenvCnpj, pDesenvIE, pDesenvIM, pDesenvNome, pPAFECFNome,
+  pPAFECFVersao, pPAFECFCredenciamento: string;
+  const pValidaDesenvolvedor, pValidaPAFECF: Boolean;
+  const pCfgEmpresa: TCfgEmpresa): TACBrBlocoX;
+begin
+  Result := TACBrBlocoX.Create(nil);
+
+  Result.Configuracoes.VersaoER := erv0206;
+
+  // Informações do Desenvolvedor
+  Result.PafECF.CnpjDesenvolvedor            := ifThen(Trim(pDesenvCnpj) > EmptyStr, pDesenvCnpj, TOTALLSISTEMAS_CNPJ);
+  Result.PafECF.NomeEmpresarialDesenvolvedor := ifThen(Trim(pDesenvNome) > EmptyStr, pDesenvNome, TOTALLSISTEMAS_RAZAOSOCIAL);
+
+  // Valida Informações do Desenvolvedor
+  if pValidaDesenvolvedor then begin
+    if (Trim(Result.PafECF.CnpjDesenvolvedor) = EmptyStr) then
+      raise Exception.Create('CNPJ da empresa desenvolvedora do PAF-ECF não informado.');
+    if (Trim(Result.PafECF.NomeEmpresarialDesenvolvedor) = EmptyStr) then
+      raise Exception.Create('Nome Empresarial (Razão Social) da empresa desenvolvedora do PAF-ECF não informado.');
+  end;
+
+  // Informações do PAF-ECF
+  Result.PafECF.NumeroCredenciamento := pPAFECFCredenciamento;
+  Result.PafECF.NomeComercial        := pPAFECFNome;
+  Result.PafECF.Versao               := pPAFECFVersao;
+
+  // Valida Informações do Aplicativo PAF-ECF
+  if pValidaPAFECF then begin
+    if (Trim(Result.PafECF.NumeroCredenciamento) = EmptyStr) then
+      raise Exception.Create('Número do credenciamento do PAF-ECF na unidade federativa que autorizou seu uso não informado.');
+    if (Trim(Result.PafECF.NomeComercial) = EmptyStr) then
+      raise Exception.Create('Nome comercial do PAF-ECF não informado.');
+    if (Trim(Result.PafECF.Versao) = EmptyStr) then
+      raise Exception.Create('Versão do PAF-ECF não informado.');
+  end;
+
+  if Assigned(pCfgEmpresa) then begin
+    ConfiguracaoTACBrBlocoXCfgEmpresa(Result, pCfgEmpresa);
+  end;
+end;
+
+class function TTotallACBrHelper.ACBrBoletoFCFRNew(const pContaBancaria: TContaBancaria;
+  const pCfgEmpresa: TCfgEmpresa;
+  const pNomeImpressora: string): TACBrBoletoFCFR;
+begin
+  if Assigned(pContaBancaria) then begin
+    if Assigned(pCfgEmpresa) then begin
+      // Configurações do FastReport
+      Result                  := TACBrBoletoFCFR.Create(nil);
+      Result.DirLogo          := GetPathCompleto(IfThen(pCfgEmpresa.Boleto.LogoColorido, DIRETORIO_BOLETO_LOGO_COLORIDO, DIRETORIO_BOLETO_LOGO_PRETOBRANCO));
+      Result.MostrarPreview   := False;
+      Result.MostrarSetup     := False;
+      Result.MostrarProgresso := False;
+      Result.SoftwareHouse    := TOTALLSISTEMAS_RAZAOSOCIAL;
+      Result.Impressora       := TServicoSO.GetNomeImpressoraValida(pNomeImpressora, pCfgEmpresa.Boleto.Impressora);
+      Result.LayOut           := TConvACBr.ConverteBolLayOut(pContaBancaria.LayoutBoleto);
+      Result.FastReportFile   := GetFileReport(pContaBancaria.LayoutBoleto, pContaBancaria.NomeArquivoPersonalizado, pContaBancaria.CodigoBanco);
+      Result.ModoThread       := True;
+      // Define modo silencioso no report para evitar mensagens de erros visuais.
+      Result.Report.EngineOptions.SilentMode := True;
+    end else begin
+      raise Exception.Create('Configurações da empresa não definidas!');
+    end;
+  end else begin
+    raise Exception.Create('Conta Bancaria não informado!');
+  end;
+end;
+
+class function TTotallACBrHelper.ACBrBoletoNew(const pContaBancaria: TContaBancaria): TACBrBoleto;
+begin
+  Self.CriaDiretorios();
+
+  Result := TACBrBoleto.Create(nil);
+
+{$IFDEF DEBUG}
+  Result.Homologacao := True;
+{$ELSE}
+  Result.Homologacao := False;
+{$ENDIF}
+  Result.DirArqRemessa := GetPathCompleto(DIRETORIO_BOLETO_REMESSA);
+  Result.DirArqRetorno := GetPathCompleto(DIRETORIO_BOLETO_RETORNO);
+
+  // Ao ativar a leitura do Cedente do retorno é para que seja carregado os dados do arquivo de retorno.
+  Result.LeCedenteRetorno := True;
+  Result.LerNossoNumeroCompleto := True;
+
+  Result.ImprimirMensagemPadrao  := True;
+  Result.RemoveAcentosArqRemessa := True;
+
+  if Assigned(pContaBancaria) then
+    Self.ConfiguracaoTACBrBoletoContaBancaria(Result, pContaBancaria);
+end;
+
+class function TTotallACBrHelper.ACBrCHQNew(const pModelo: TACBrCHQModelo; const pCfgDevice: TCfgDevice; const pArquivoBemaFiINI: string): TACBrCHQ;
+begin
+  Result := TACBrCHQ.Create(nil);
+
+  Self.ConfiguracaoTACBrCHQCfgDevice(Result, pModelo, pCfgDevice, pArquivoBemaFiINI);
+end;
+
+class function TTotallACBrHelper.ACBrConsultaCNPJNew: TACBrConsultaCNPJ;
+begin
+  Result := TACBrConsultaCNPJ.Create(nil);
+
+  Self.ConfiguracaoTACBrConsultaCNPJCfgEmpresa(Result);
+end;
+
+class function TTotallACBrHelper.ACBrConsultaCPFNew: TACBrConsultaCPF;
+begin
+  Result := TACBrConsultaCPF.Create(nil);
+
+  Self.ConfiguracaoTACBrConsultaCPFCfgEmpresa(Result);
+end;
+
+class function TTotallACBrHelper.ACBrETQNew(const pImpressora: TImpressora): TACBrETQ;
+begin
+  Result := TACBrETQ.Create(nil);
+
+  Self.ConfiguracaoACBrETQImpressora(Result, pImpressora);
+end;
+
+class procedure TTotallACBrHelper.ACBrGravarLog(const ALogLine: string; var Tratado: Boolean);
+begin
+  RegistraLog('Erro "' + IfThen(Tratado, 'Tratado', 'Não Tratado') + '" do ACBr:' + sLineBreak + ALogLine, TServerUtils.GetGerarTrace);
+end;
+
+class function TTotallACBrHelper.TotallACBrHTTPNew(const pCfgEmpresa: TCfgEmpresa; const pCfgProxy: TCfgProxy): TTotallACBrHTTP;
+begin
+  if not Assigned(pCfgEmpresa) then begin
+    raise Exception.Create('Objeto pCfgEmpresa não instanciado.');
+  end;
+  if not Assigned(pCfgProxy) then begin
+    raise Exception.Create('Objeto pCfgProxy não instanciado.');
+  end;
+
+  Result := TTotallACBrHTTP.Create(nil);
+
+  // Proxy
+{$IFDEF WSLocal}
+  Result.ProxyHost := EmptyStr;
+  Result.ProxyPort := EmptyStr;
+  Result.ProxyUser := EmptyStr;
+  Result.ProxyPass := EmptyStr;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  Result.ProxyHost := EmptyStr;
+  Result.ProxyPort := EmptyStr;
+  Result.ProxyUser := EmptyStr;
+  Result.ProxyPass := EmptyStr;
+{$ELSE}
+  Result.ProxyHost := puMiddleware.Config.Proxy.Host;
+  Result.ProxyPort := IntToStr(puMiddleware.Config.Proxy.Porta);
+  Result.ProxyUser := puMiddleware.Config.Proxy.Usuario;
+  Result.ProxyPass := puMiddleware.Config.Proxy.Senha;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.ACBrNFeDANFCEFRNew(ACBrNFe: TACBrNFe; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora, pEhPrevia, pEhNotaManual: Boolean): TACBrNFeDANFCEFR;
+begin
+  Self.CriaDiretorios();
+  //RegistraLog('TTotallACBrHelper.ACBrNFeDANFCEFRNew - Inicializa TACBrNFeDANFCEFR');
+  Result := TACBrNFeDANFCEFR.Create(nil);
+
+  //RegistraLog('TTotallACBrHelper.ACBrNFeDANFCEFRNew - Configura TACBrNFeDANFCEFR');
+  Self.ConfiguracaoTACBrNFeDANFCEFR(Result, pCfgEmpresa, pImpressora, pSetImpressora, pEhPrevia, pEhNotaManual);
+
+  //RegistraLog('TTotallACBrHelper.ACBrNFeDANFCEFRNew - Define ACBrNFCe.DANFE');
+  // Configurações do DANFE
+  ACBrNFe.DANFE := Result;
+end;
+
+class function TTotallACBrHelper.ACBrNFeDANFCEFRNewParans(ACBrNFe: TACBrNFe; const pImpressora: string; const pSetImpressora, pEhPrevia, pEhNotaManual: Boolean): TACBrNFeDANFCEFR;
+var
+  oCfgEmpresa: TCfgEmpresa;
+begin
+  //RegistraLog('TTotallACBrHelper.ACBrNFeDANFCEFRNewParans - Inicia');
+  oCfgEmpresa := TCfgEmpresa.Create;
+  try
+    oCfgEmpresa.ImpressaoNFe.PathPDF                       := GetPathCompleto(DIRETORIO_PDF);
+    oCfgEmpresa.ImpressaoNFe.Impressora                    := EmptyStr;
+    oCfgEmpresa.ImpressaoNFe.NumeroVias                    := 1;
+    oCfgEmpresa.ImpressaoNFe.ImprimeTotalLiquido           := True;
+    oCfgEmpresa.ImpressaoNFe.ImprimeLogoExpandida          := False;
+    oCfgEmpresa.ImpressaoNFe.ImprimeDetalhamentoEspecifico := False;
+    oCfgEmpresa.ImpressaoNFe.UsaCodigoEan                  := False;
+    oCfgEmpresa.ImpressaoNFe.WebSite                       := EmptyStr;
+
+    //RegistraLog('TTotallACBrHelper.ACBrNFeDANFCEFRNewParans - Chama configuração');
+
+    Result := TTotallACBrHelper.ACBrNFeDANFCEFRNew(ACBrNFe, oCfgEmpresa, pImpressora, pSetImpressora, pEhPrevia, pEhNotaManual);
+  finally
+    //RegistraLog('TTotallACBrHelper.ACBrNFeDANFCEFRNewParans - Finaliza');
+    if Assigned(oCfgEmpresa) then
+      FreeAndNil(oCfgEmpresa);
+    //RegistraLog('TTotallACBrHelper.ACBrNFeDANFCEFRNewParans - Finalizado');
+  end;
+end;
+
+class function TTotallACBrHelper.ACBrNFeDANFeESCPOSNew(ACBrNFe: TACBrNFe; const ACBrPosPrinter: TACBrPosPrinter): TACBrNFeDANFeESCPOS;
+begin
+  Result                := TACBrNFeDANFeESCPOS.Create(nil);
+  ACBrNFe.DANFE         := Result;
+  Result.ACBrNFe        := ACBrNFe;
+  Result.PosPrinter     := ACBrPosPrinter;
+  Result.MostraPreview  := False;
+  Result.MostraStatus   := True;
+  Result.TipoDANFE      := tiNFCe;
+  Result.MargemInferior := 0.800000000000000000;
+  Result.MargemSuperior := 0.800000000000000000;
+  Result.MargemEsquerda := 0.600000000000000000;
+  Result.MargemDireita  := 0.510000000000000000;
+  //  Result.LocalImpCanhoto                := 0; //DN 103234-ACBr NFe 4.0
+  Result.CasasDecimais.MaskqCom   := '###,###,###,##0.00##';
+  Result.CasasDecimais.MaskvUnCom := '###,###,###,##0.00##';
+  Result.CasasDecimais.Formato    := tdetMascara;
+  Result.ExibeInforAdicProduto    := infDescricao;
+  if GetEmpresaResponsavel = TEnumER_Eme4 then begin
+    Result.Sistema := EME4SISTEMAS_NOMESISTEMA;
+    Result.Site    := EME4SISTEMAS_WEBSITE;
+  end else if GetEmpresaResponsavel = TEnumER_TotaliSistemas then begin
+    Result.Sistema := TOTALISISTEMAS_NOMESISTEMA;
+    Result.Site    := TOTALISISTEMAS_WEBSITE;
+  end else begin
+    Result.Sistema := TOTALLSISTEMAS_NOMESISTEMA;
+    Result.Site    := TOTALLSISTEMAS_WEBSITE;
+  end;
+
+  //Result.Email                          := TOTALLSISTEMAS_EMAIL;
+  Result.UsaSeparadorPathPDF   := True;
+  Result.PathPDF               := PathDefaultArquivos + DIRETORIO_PDF;
+  Result.NumCopias             := 1;
+  Result.ImprimeTotalLiquido   := True;
+  Result.ExibeResumoRodape     := True;
+  Result.Cancelada             := False;
+  Result.ViaConsumidor         := True;
+  Result.ImprimeTributos       := trbSeparadamente;
+  Result.ImprimeEmUmaLinha     := TTotallACBrHelper.GetImprimeEmUmaLinha;
+  Result.ImprimeDescAcrescItem := True;
+end;
+
+class function TTotallACBrHelper.ACBrNFeDANFEFRNew(ACBrNFe: TACBrNFe;
+  const pCfgEmpresa: TCfgEmpresa; const pImpressora: string; const pSetImpressora: Boolean; const pEhPrevia: Boolean): TACBrNFeDANFEFR;
+begin
+  Self.CriaDiretorios();
+  Result := TACBrNFeDANFEFR.Create(nil);
+
+  // Configurações do DANFE
+  ACBrNFe.DANFE := Result;
+
+  Self.ConfiguracaoTACBrNFeDANFEFR(Result, pCfgEmpresa, pImpressora, pSetImpressora, pEhPrevia);
+end;
+
+class function TTotallACBrHelper.ACBrCTeDACTEFREventoNew(ACBrCTe: TACBrCTe; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean): TACBrCTeDACTEFR;
+begin
+  Self.CriaDiretorios();
+  Result := TACBrCTeDACTEFR.Create(nil);
+
+  // Configurações do Report
+  ACBrCTe.DACTE := Result;
+
+  Self.ConfiguracaoTACBrCTeDACTEFREvento(Result, pCfgEmpresa, pImpressora, pSetImpressora);
+end;
+
+class function TTotallACBrHelper.ACBrCTeDACTEFRNew(ACBrCTe: TACBrCTe;
+  const pCfgEmpresa: TCfgEmpresa; const pImpressora: string; const pSetImpressora: Boolean; const pEhPrevia: Boolean): TACBrCTeDACTEFR;
+begin
+  Self.CriaDiretorios();
+  Result := TACBrCTeDACTEFR.Create(nil);
+
+  // Configurações do DANFE
+  ACBrCTe.DACTE := Result;
+
+  Self.ConfiguracaoTACBrCTeDACTEFR(Result, pCfgEmpresa, pImpressora, pSetImpressora, pEhPrevia);
+end;
+
+class function TTotallACBrHelper.ACBrNFeDANFEFREventoNew(ACBrNFe: TACBrNFe; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean): TACBrNFeDANFEFR;
+begin
+  Self.CriaDiretorios();
+  Result := TACBrNFeDANFEFR.Create(nil);
+
+  // Configurações do Report
+  ACBrNFe.DANFE := Result;
+
+  Self.ConfiguracaoTACBrNFeDANFEFREvento(Result, pCfgEmpresa, pImpressora, pSetImpressora);
+end;
+
+class function TTotallACBrHelper.ACBrNFeNew(const pPathCertificado: string;
+  const pSenhaCertificado: string;
+  const pNumeroSerieCertificado: string;
+  const pCSC: string;
+  const pIdCSC: string;
+  const pIdCSRT: Integer;
+  const pCSRT: string): TACBrNFe;
+var
+  bOk, bUsaNT2018_005, bGerainfRespTec, bUsaNT2020_006: Boolean;
+begin
+  Self.CriaDiretorios();
+
+  Result := TACBrNFe.Create(nil);
+  //DN dava Erro de Access violatio na segunda vez coloquei baseado no fórum:
+  //   http://www.projetoacbr.com.br/forum/index.php?/topic/9488-assinar-xml-cte-com-openssl/
+  //DN Propriedade não existe no CBCe2 // AcbrNFe.Configuracoes.Geral.IniFinXMLSECAutomatico:=false;
+
+  Result.Configuracoes.Geral.ExibirErroSchema := True;
+  Result.Configuracoes.Geral.FormatoAlerta    := 'TAG:%TAGNIVEL% ID:%ID%/%TAG%(%DESCRICAO%) - %MSG%.';
+  Result.Configuracoes.Geral.RetirarAcentos   := True;
+  Result.Configuracoes.Geral.ValidarDigest    := False;
+  Result.Configuracoes.Geral.RetirarEspacos   := False;
+{$IFDEF WSLocal}
+  Result.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  Result.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result.Configuracoes.WebServices.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    Result.Configuracoes.WebServices.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  Result.Configuracoes.WebServices.AguardarConsultaRet := 2000;
+  Result.Configuracoes.WebServices.IntervaloTentativas := 100;
+  Result.Configuracoes.WebServices.TimeOut             := 30000;
+  Result.Configuracoes.WebServices.Tentativas          := 5;
+  Result.Configuracoes.WebServices.AjustaAguardaConsultaRet := True;
+
+  { TODO: Para alteração da versão da NFe basta alterar a versão do Documento Fiscal que a pasta Schemas ira seguir a mesma. }
+  Result.Configuracoes.Geral.VersaoDF := StrToVersaoDF(bOk, VERSAO_DFE);
+
+  Result.Configuracoes.Arquivos.AdicionarLiteral := False;
+  Result.Configuracoes.Arquivos.Salvar           := False;
+  Result.Configuracoes.Arquivos.SalvarEvento     := False;
+  Result.Configuracoes.Arquivos.SepararPorCNPJ   := False;
+  Result.Configuracoes.Arquivos.SepararPorModelo := False;
+  Result.Configuracoes.Arquivos.EmissaoPathNFe   := False; // Define se usa data de emissão ou data do sistema para definir o path
+  Result.Configuracoes.Arquivos.SepararPorAno    := False;
+  Result.Configuracoes.Arquivos.SepararPorMes    := False;
+  Result.Configuracoes.Arquivos.SepararPorDia    := False;
+{$IFDEF WSLocal}
+  Result.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := True;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  Result.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := True;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := puMiddleware.Ini.SalvarApenasNFeProcessadas;
+
+    Result.Configuracoes.WebServices.TimeOutPorThread := puMiddleware.Ini.TimeOutPorThread;
+  end else begin
+    Result.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := True;
+  end;
+{$ENDIF}
+{$ENDIF}
+  Result.Configuracoes.WebServices.SSLType         := Self.GetSSLType;
+  Result.Configuracoes.Geral.CamposFatObrigatorios := Self.GetCamposFatObrigatorios;
+  Result.Configuracoes.Geral.VersaoQRCode          := StrToVersaoQrCode(bOk, Self.GetVersaoQRCode);
+  if (Self.GetDataNT2018_005_vICMSSubstituto > 0) and (Trunc(Now()) >= Self.GetDataNT2018_005_vICMSSubstituto) then begin
+    Result.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtSempre;
+  end else begin
+    Result.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtNunca;
+  end;
+
+  if (GetDataNT2018_005_CSRT > 0) and (Trunc(Now()) >= GetDataNT2018_005_CSRT) then begin
+    bGerainfRespTec := True;
+  end else begin
+    bGerainfRespTec := False;
+  end;
+
+  bUsaNT2018_005 := (Result.Configuracoes.Geral.ForcarGerarTagRejeicao938 = fgtSempre) or bGerainfRespTec;
+  bUsaNT2020_006 := (GetDataNT2020_006 > 0) and (Trunc(Now()) >= GetDataNT2020_006);
+
+  Result.Configuracoes.Arquivos.DownloadDFe.SepararPorNome := False;
+  // Utilizado Fixo o Ambiente de produção pois não é nesse ponto que é definido essa regra e sim na geração do XML
+  Result.Configuracoes.Arquivos.PathSchemas              := TTotallACBrHelper.PathSchemasTACBrNFeVersaoDF(taProducao, mdNFe, Result.Configuracoes.Geral.VersaoDF, bUsaNT2018_005, bUsaNT2020_006);
+  Result.Configuracoes.Arquivos.PathSalvar               := PathDefaultArquivos;
+  Result.Configuracoes.Arquivos.PathNFe                  := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.PathInu                  := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.PathEvento               := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.DownloadDFe.PathDownload := Result.Configuracoes.Arquivos.PathSalvar;
+
+  SetCertificado(Result.Configuracoes.Geral, Result.Configuracoes.Certificados, pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado);
+  SetCSC(Result.Configuracoes.Geral, pCSC, pIdCSC);
+  SetCSRT(Result.Configuracoes.RespTec, pIdCSRT, pCSRT);
+end;
+
+class function TTotallACBrHelper.ACBrCTeNew(const pPathCertificado: string;
+  const pSenhaCertificado: string;
+  const pNumeroSerieCertificado: string;
+  const pCSC: string;
+  const pIdCSC: string;
+  const pIdCSRT: Integer;
+  const pCSRT: string): TACBrCTe;
+var
+  bOk: Boolean;
+begin
+  Self.CriaDiretorios();
+
+  Result := TACBrCTe.Create(nil);
+  //DN dava Erro de Access violatio na segunda vez coloquei baseado no fórum:
+  //   http://www.projetoacbr.com.br/forum/index.php?/topic/9488-assinar-xml-cte-com-openssl/
+  //DN Propriedade não existe no CBCe2 // AcbrNFe.Configuracoes.Geral.IniFinXMLSECAutomatico:=false;
+
+  Result.Configuracoes.Geral.ExibirErroSchema := True;
+  Result.Configuracoes.Geral.FormatoAlerta    := 'TAG:%TAGNIVEL% ID:%ID%/%TAG%(%DESCRICAO%) - %MSG%.';
+  Result.Configuracoes.Geral.RetirarAcentos   := True;
+  Result.Configuracoes.Geral.ValidarDigest    := False;
+  Result.Configuracoes.Geral.RetirarEspacos   := False;
+{$IFDEF WSLocal}
+  Result.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  Result.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result.Configuracoes.WebServices.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    Result.Configuracoes.WebServices.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  Result.Configuracoes.WebServices.AguardarConsultaRet := 2000;
+  Result.Configuracoes.WebServices.IntervaloTentativas := 100;
+  Result.Configuracoes.WebServices.TimeOut             := 30000;
+  Result.Configuracoes.WebServices.Tentativas          := 5;
+  Result.Configuracoes.WebServices.AjustaAguardaConsultaRet := True;
+
+  { TODO: Para alteração da versão da CTe basta alterar a versão do Documento Fiscal que a pasta Schemas ira seguir a mesma. }
+  Result.Configuracoes.Geral.VersaoDF := StrToVersaoCTe(bOk, VERSAO_DFE_CTE);
+
+  Result.Configuracoes.Arquivos.AdicionarLiteral := False;
+  Result.Configuracoes.Arquivos.Salvar           := False;
+  //  Result.Configuracoes.Arquivos.SalvarEvento     := False;
+  Result.Configuracoes.Arquivos.SepararPorCNPJ   := False;
+  Result.Configuracoes.Arquivos.SepararPorModelo := False;
+  Result.Configuracoes.Arquivos.EmissaoPathCTe   := False; // Define se usa data de emissão ou data do sistema para definir o path
+  Result.Configuracoes.Arquivos.SepararPorAno    := False;
+  Result.Configuracoes.Arquivos.SepararPorMes    := False;
+  Result.Configuracoes.Arquivos.SepararPorDia    := False;
+{$IFDEF WSLocal}
+  Result.Configuracoes.Arquivos.SalvarApenasCTeProcessados := True;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  Result.Configuracoes.Arquivos.SalvarApenasCTeProcessados := True;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result.Configuracoes.Arquivos.SalvarApenasCTeProcessados := puMiddleware.Ini.SalvarApenasCTeProcessadas;
+
+    Result.Configuracoes.WebServices.TimeOutPorThread := puMiddleware.Ini.TimeOutPorThread;
+  end else begin
+    Result.Configuracoes.Arquivos.SalvarApenasCTeProcessados := True;
+  end;
+{$ENDIF}
+{$ENDIF}
+  Result.Configuracoes.WebServices.SSLType := Self.GetSSLType;
+  //  Result.Configuracoes.Geral.CamposFatObrigatorios := Self.GetCamposFatObrigatorios;
+  //  Result.Configuracoes.Geral.VersaoQRCode          := StrToVersaoQrCode(bOk, Self.GetVersaoQRCode);
+  //  if (Self.GetDataNT2018_005_vICMSSubstituto > 0) and (Trunc(Now()) >= Self.GetDataNT2018_005_vICMSSubstituto) then begin
+  //    Result.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtSempre;
+  //  end else begin
+  //    Result.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtNunca;
+  //  end;
+
+  //  if (GetDataNT2018_005_CSRT > 0) and (Trunc(Now()) >= GetDataNT2018_005_CSRT) then begin
+  //    bGerainfRespTec := True;
+  //  end else begin
+  //    bGerainfRespTec := False;
+  //  end;
+
+  //  bUsaNT2018_005 := (Result.Configuracoes.Geral.ForcarGerarTagRejeicao938 = fgtSempre) or bGerainfRespTec;
+
+  Result.Configuracoes.Arquivos.DownloadDFe.SepararPorNome := False;
+  // Utilizado Fixo o Ambiente de produção pois não é nesse ponto que é definido essa regra e sim na geração do XML
+  Result.Configuracoes.Arquivos.PathSchemas              := TTotallACBrHelper.PathSchemasTACBrCTeVersaoDF(taProducao, Result.Configuracoes.Geral.VersaoDF);
+  Result.Configuracoes.Arquivos.PathSalvar               := PathDefaultArquivos;
+  Result.Configuracoes.Arquivos.PathCTe                  := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.PathInu                  := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.PathEvento               := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.DownloadDFe.PathDownload := Result.Configuracoes.Arquivos.PathSalvar;
+
+  SetCertificado(Result.Configuracoes.Geral, Result.Configuracoes.Certificados, pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado);
+  //  SetCSC(Result.Configuracoes.Geral, pCSC, pIdCSC);
+  SetCSRT(Result.Configuracoes.RespTec, pIdCSRT, pCSRT);
+end;
+
+class function TTotallACBrHelper.ACBrDeviceNew(const pCfgDevice: TCfgDevice): TACBrDevice;
+begin
+  Result := TACBrDevice.Create(nil);
+  ConfiguracaoTACBrDeviceCfgDevice(Result, pCfgDevice);
+end;
+
+class function TTotallACBrHelper.ACBrLCBNew(const pCfgDevice: TCfgDevice; const pSufixo: string): TACBrLCB;
+begin
+  Result := TACBrLCB.Create(nil);
+
+  ConfiguracaoTACBrLCBCfgDevice(Result, pCfgDevice, pSufixo);
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrLCBCfgDevice(ACBrLCB: TACBrLCB; const pCfgDevice: TCfgDevice; const pSufixo: string);
+begin
+  if not Assigned(pCfgDevice) then
+    raise Exception.Create('Configurações do Device não definidas!');
+
+  if not Assigned(ACBrLCB) then
+    raise Exception.Create('ACBrLCB não informado!');
+
+  if (Trim(pCfgDevice.Porta) = EmptyStr) then
+    raise Exception.Create('Porta não informado!');
+
+  ACBrLCB.Sufixo          := pSufixo;
+  ACBrLCB.ExcluirSufixo   := (ACBrLCB.Sufixo <> EmptyStr);
+  ACBrLCB.PrefixoAExcluir := EmptyStr;
+  ACBrLCB.PrefixoAIncluir := EmptyStr;
+  ACBrLCB.Porta           := pCfgDevice.Porta;
+  if (Trim(pCfgDevice.ArqLOG) = EmptyStr) then begin
+    pCfgDevice.ArqLOG := GetDiretorioLogs + 'ACBrLCB.log';
+  end;
+  Self.ConfiguracaoTACBrDeviceCfgDevice(ACBrLCB.Device, pCfgDevice);
+end;
+
+class function TTotallACBrHelper.ACBrMDFeDAMDFEFRNew(ACBrMDFe: TACBrMDFe; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string; const pSetImpressora: Boolean; const pEhPrevia: Boolean): TACBrMDFeDAMDFEFR;
+begin
+  Self.CriaDiretorios();
+  Result := TACBrMDFeDAMDFEFR.Create(nil);
+
+  // Configurações do DAMDFE
+  ACBrMDFe.DAMDFE := Result;
+
+  Self.ConfiguracaoTACBrMDFeDAMDFEFR(Result, pCfgEmpresa, pImpressora, pSetImpressora, pEhPrevia);
+end;
+
+class function TTotallACBrHelper.ACBrMDFeNew(const pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado, pCSC, pIdCSC: string; const pIdCSRT: Integer; const pCSRT: string): TACBrMDFe;
+var
+  bOk: Boolean;
+begin
+  Self.CriaDiretorios();
+
+  Result := TACBrMDFe.Create(nil);
+
+  Result.Configuracoes.Geral.ExibirErroSchema := True;
+  Result.Configuracoes.Geral.FormatoAlerta    := 'TAG:%TAGNIVEL% ID:%ID%/%TAG%(%DESCRICAO%) - %MSG%.';
+  Result.Configuracoes.Geral.RetirarAcentos   := True;
+  Result.Configuracoes.Geral.ValidarDigest    := False;
+  Result.Configuracoes.Geral.RetirarEspacos   := False;
+{$IFDEF WSLocal}
+  Result.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  Result.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result.Configuracoes.WebServices.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    Result.Configuracoes.WebServices.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  Result.Configuracoes.WebServices.AguardarConsultaRet := 2000;
+  Result.Configuracoes.WebServices.IntervaloTentativas := 100;
+  Result.Configuracoes.WebServices.TimeOut             := 30000;
+  Result.Configuracoes.WebServices.Tentativas          := 5;
+  Result.Configuracoes.WebServices.AjustaAguardaConsultaRet := True;
+
+  { TODO: Para alteração da versão da MDFe basta alterar a versão do Documento Fiscal que a pasta Schemas ira seguir a mesma. }
+  Result.Configuracoes.Geral.VersaoDF := StrToVersaoMDFe(bOk, VERSAO_DFE_MDFE);
+
+  Result.Configuracoes.Arquivos.AdicionarLiteral := False;
+  Result.Configuracoes.Arquivos.Salvar           := False;
+  //  Result.Configuracoes.Arquivos.SalvarEvento     := False;
+  Result.Configuracoes.Arquivos.SepararPorCNPJ   := False;
+  Result.Configuracoes.Arquivos.SepararPorModelo := False;
+  Result.Configuracoes.Arquivos.EmissaoPathMDFe  := False; // Define se usa data de emissão ou data do sistema para definir o path
+  Result.Configuracoes.Arquivos.SepararPorAno    := False;
+  Result.Configuracoes.Arquivos.SepararPorMes    := False;
+  Result.Configuracoes.Arquivos.SepararPorDia    := False;
+{$IFDEF WSLocal}
+  Result.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := True;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  Result.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := True;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := puMiddleware.Ini.SalvarApenasMDFeProcessadas;
+
+    Result.Configuracoes.WebServices.TimeOutPorThread := puMiddleware.Ini.TimeOutPorThread;
+  end else begin
+    Result.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := True;
+  end;
+{$ENDIF}
+{$ENDIF}
+  Result.Configuracoes.WebServices.SSLType := Self.GetSSLType;
+
+  Result.Configuracoes.Arquivos.DownloadDFe.SepararPorNome := False;
+  // Utilizado Fixo o Ambiente de produção pois não é nesse ponto que é definido essa regra e sim na geração do XML
+  Result.Configuracoes.Arquivos.PathSchemas := TTotallACBrHelper.PathSchemasTACBrMDFeVersaoDF(taProducao, Result.Configuracoes.Geral.VersaoDF);
+  Result.Configuracoes.Arquivos.PathSalvar  := PathDefaultArquivos;
+  Result.Configuracoes.Arquivos.PathMDFe    := Result.Configuracoes.Arquivos.PathSalvar;
+  //  Result.Configuracoes.Arquivos.PathInu                  := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.PathEvento               := Result.Configuracoes.Arquivos.PathSalvar;
+  Result.Configuracoes.Arquivos.DownloadDFe.PathDownload := Result.Configuracoes.Arquivos.PathSalvar;
+
+  SetCertificado(Result.Configuracoes.Geral, Result.Configuracoes.Certificados, pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado);
+  //  SetCSC(Result.Configuracoes.Geral, pCSC, pIdCSC);
+  SetCSRT(Result.Configuracoes.RespTec, pIdCSRT, pCSRT);
+end;
+
+class function TTotallACBrHelper.ACBrPAFNew(const pDesenvCnpj, pDesenvIE, pDesenvIM, pDesenvNome, pDesenvUF, pPAFECFNome, pPAFECFVersao,
+  pPAFECFLaudo: string; const pLayoutPAFNFCe: Boolean = false): TACBrPAF;
+begin
+  Result                := TACBrPAF.Create(nil);
+  Result.AssinarArquivo := False;
+
+  if pLayoutPAFNFCe then begin
+    Result.Layout := lpPAFNFCe;
+  end else begin
+    Result.Layout := lpPAFECF;
+  end;
+
+  // Informações do Desenvolvedor
+  Result.PAF_Z.RegistroZ2.CNPJ        := ifThen(Trim(pDesenvCnpj) > EmptyStr, pDesenvCnpj, IfThen(pLayoutPAFNFCe, TOTALISISTEMAS_CNPJ, TOTALLSISTEMAS_CNPJ));
+  Result.PAF_Z.RegistroZ2.RAZAOSOCIAL := ifThen(Trim(pDesenvNome) > EmptyStr, pDesenvNome, IfThen(pLayoutPAFNFCe, TOTALISISTEMAS_RAZAOSOCIAL, TOTALLSISTEMAS_RAZAOSOCIAL));
+  Result.PAF_Z.RegistroZ2.IE          := ifThen(Trim(pDesenvIE) > EmptyStr, pDesenvIE, IfThen(pLayoutPAFNFCe, TOTALISISTEMAS_IE, TOTALLSISTEMAS_IE));
+  Result.PAF_Z.RegistroZ2.UF          := ifThen(Trim(pDesenvUF) > EmptyStr, pDesenvUF, IfThen(pLayoutPAFNFCe, TOTALISISTEMAS_ESTADO, TOTALLSISTEMAS_ESTADO));
+  Result.PAF_Z.RegistroZ2.IM          := ifThen(Trim(pDesenvIM) > EmptyStr, pDesenvIM, IfThen(pLayoutPAFNFCe, TOTALISISTEMAS_IM, TOTALLSISTEMAS_IM));
+
+  //Valida Informações do Desenvolvedor
+  if (Trim(Result.PAF_Z.RegistroZ2.CNPJ) = EmptyStr) then
+    raise Exception.Create('CNPJ da empresa desenvolvedora do PAF-ECF não informado.');
+  if (Trim(Result.PAF_Z.RegistroZ2.RAZAOSOCIAL) = EmptyStr) then
+    raise Exception.Create('Razão Social da empresa desenvolvedora do PAF-ECF não informado.');
+  //if (Trim(Result.PAF_Z.RegistroZ2.IE)=EmptyStr) then
+  //  raise Exception.Create('Inscrição Estadual da empresa desenvolvedora do PAF-ECF não informado.');
+  //if (Trim(Result.PAF_Z.RegistroZ2.UF)=EmptyStr) then
+  //  raise Exception.Create('Estado da empresa desenvolvedora do PAF-ECF não informado.');
+  //if (Trim(Result.PAF_Z.RegistroZ2.IM)=EmptyStr) then
+  //  raise Exception.Create('Inscrição Municipal da empresa desenvolvedora do PAF-ECF não informado.');
+
+  // Informações do PAF-ECF
+  Result.PAF_Z.RegistroZ3.NOME   := pPAFECFNome;
+  Result.PAF_Z.RegistroZ3.VERSAO := pPAFECFVersao;
+  Result.PAF_Z.RegistroZ3.LAUDO  := pPAFECFLaudo;
+
+  //Valida Informações do Aplicativo PAF-ECF
+  if (Trim(Result.PAF_Z.RegistroZ3.LAUDO) = EmptyStr) then
+    raise Exception.Create('Número do Laudo do PAF-ECF não informado.');
+  if (Trim(Result.PAF_Z.RegistroZ3.NOME) = EmptyStr) then
+    raise Exception.Create('Nome comercial do PAF-ECF não informado.');
+  if (Trim(Result.PAF_Z.RegistroZ3.VERSAO) = EmptyStr) then
+    raise Exception.Create('Versão do PAF-ECF não informado.');
+end;
+
+class function TTotallACBrHelper.ACBrPAFNew2: TACBrPAF;
+begin
+  Result := TACBrPAF.Create(nil);
+end;
+
+class function TTotallACBrHelper.ACBrPosPrinterNew(const pModelo: TEnumModeloImpressora): TACBrPosPrinter;
+begin
+  Result := TACBrPosPrinter.Create(nil);
+  SetModeloACBrPosPrinter(Result, pModelo);
+  Result.Device.Baud                := 115200;
+  Result.ConfigBarras.MostrarCodigo := True;
+  Result.ConfigBarras.LarguraLinha  := 2;
+  Result.ConfigBarras.Altura        := 100;
+  Result.LinhasEntreCupons          := 5;
+  Result.ArqLOG                     := GetDiretorioLogs + 'ACBrPosPrinter.log'; //Grava Log da conversão e textos enviados para a impressão
+  //IntervaloBuffer           := 0;
+
+  // Pedro E. Braga - 100134 / 100447
+  // Na DR800 e MP4200 estava gerando problema na impressão onde dependendo da velocidade de processamento o conteudo não era totalmente impresso
+  // A configuração gera um atraso no envio de cada comando de comunicação assim dando tempo para que a impressora receba todo o conteudo a ser impresso
+  //   antes da comunicação ser desativada.
+  // Rhuan - Não estava cortando o Papel para Daruma DR700. Aumentando o intervalo de envio para 300 milissegundos passou a funcionar.
+  // Muito cuidado ao mexer nesse intervalo, pois pode prejudicar o desempenho da impressão.
+  if pModelo = TEnumModeloImpressora.miDaruma then
+    Result.Device.SendBytesInterval := 300
+  else
+    Result.Device.SendBytesInterval := 100;
+end;
+
+class function TTotallACBrHelper.ACBrSATExtratoESCPOSNew(const ACBrPosPrinter: TACBrPosPrinter): TACBrSATExtratoESCPOS;
+begin
+  Result                          := TACBrSATExtratoESCPOS.Create(nil);
+  Result.PosPrinter               := ACBrPosPrinter;
+  Result.ImprimeQRCode            := True;
+  Result.ImprimeEmUmaLinha        := TTotallACBrHelper.GetImprimeEmUmaLinha;
+  Result.CasasDecimais.MaskqCom   := '0.00##';
+  Result.CasasDecimais.MaskvUnCom := '0.00#';
+  Result.Sistema                  := TOTALLSISTEMAS_NOMESISTEMA;
+  Result.Site                     := TOTALLSISTEMAS_WEBSITE;
+  //Result.Email                          := TOTALLSISTEMAS_EMAIL;
+end;
+
+class function TTotallACBrHelper.ACBrSATNew(const pCfgSAT: TCfgSAT;
+  const pCfgEmpresa: TCfgEmpresa): TACBrSAT;
+begin
+  Self.CriaDiretorios();
+
+  Result := TACBrSAT.Create(nil);
+
+  Result.ConfigArquivos.SalvarCFe            := False;
+  Result.ConfigArquivos.SalvarCFeCanc        := False;
+  Result.ConfigArquivos.SalvarEnvio          := False;
+  Result.ConfigArquivos.SalvarEnvio          := False;
+  Result.ConfigArquivos.SepararPorCNPJ       := True;
+  Result.ConfigArquivos.SepararPorModelo     := True;
+  Result.ConfigArquivos.SepararPorAno        := True;
+  Result.ConfigArquivos.SepararPorMes        := True;
+  Result.ConfigArquivos.SepararPorDia        := True;
+  Result.ConfigArquivos.PastaEnvio           := PathDefaultArquivos;
+  Result.ConfigArquivos.PastaCFeVenda        := PathDefaultArquivos;
+  Result.ConfigArquivos.PastaCFeCancelamento := PathDefaultArquivos;
+  Result.ArqLOG                              := GetDiretorioLogs + 'ACBrSAT.log';
+
+  if Assigned(pCfgSAT) and Assigned(pCfgEmpresa) then begin
+    ConfiguracaoTACBrSATCfgSATCfgEmpresa(Result, pCfgSAT, pCfgEmpresa);
+  end else begin
+    if Assigned(pCfgSAT) then
+      ConfiguracaoTACBrSATCfgSAT(Result, pCfgSAT);
+    if Assigned(pCfgEmpresa) then
+      ConfiguracaoTACBrSATCfgEmpresa(Result, pCfgEmpresa);
+  end;
+end;
+
+class function TTotallACBrHelper.ACBrSATWSNew(const pCfgEmpresa: TCfgEmpresa): TACBrSATWS;
+begin
+  Result := TACBrSATWS.Create(nil);
+
+  Result.OnGerarLog := ACBrGravarLog;
+
+  if Assigned(pCfgEmpresa) then begin
+    ConfiguracaoTACBrSATWSCfgEmpresa(Result, pCfgEmpresa);
+  end;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoACBrETQImpressora(ACBrETQ: TACBrETQ; const pImpressora: TImpressora);
+begin
+  if not Assigned(pImpressora) then
+    raise Exception.Create('Configurações da impressora não definidas!');
+  if not Assigned(ACBrETQ) then
+    raise Exception.Create('ACBrETQ não informado!');
+
+  ACBrETQ.Modelo        := TConvACBr.ConverteTipoComunicacaoImpressora(pImpressora.Tipo);
+  ACBrETQ.Porta         := pImpressora.Porta;
+  ACBrETQ.LimparMemoria := True;
+  ACBrETQ.Temperatura   := pImpressora.Temperatura;
+  ACBrETQ.Velocidade    := pImpressora.Velocidade;
+  ACBrETQ.DPI           := TConvACBr.ConverteDPIImpressora(pImpressora.DPI);
+  ACBrETQ.Unidade       := TConvACBr.ConverteUnidadeImpressora(pImpressora.Unidade);
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoDFeSSL(pDFeSSL: TDFeSSL; const pCfgEmpresa: TCfgEmpresa);
+begin
+  if not Assigned(pDFeSSL) then
+    raise Exception.Create('DFeSSL não informado!');
+  //if not Assigned(pCfgEmpresa) then
+  //  raise Exception.Create('Configurações da empresa não definidas!');
+
+  pDFeSSL.SSLType       := Self.GetSSLType;
+  pDFeSSL.SSLCryptLib   := Self.GetSSLCryptLib;
+  pDFeSSL.SSLHttpLib    := Self.GetSSLHttpLib;
+  pDFeSSL.SSLXmlSignLib := Self.GetSSLXmlSignLib;
+
+  if Assigned(pCfgEmpresa) then begin
+    pDFeSSL.ArquivoPFX   := AnsiString(pCfgEmpresa.Certificado.Caminho);
+    pDFeSSL.Senha        := AnsiString(pCfgEmpresa.Certificado.Senha);
+    pDFeSSL.NameSpaceURI := EmptyStr;
+  end else begin
+    pDFeSSL.ArquivoPFX   := EmptyStr;
+    pDFeSSL.Senha        := EmptyStr;
+    pDFeSSL.NameSpaceURI := EmptyStr;
+  end;
+
+  // Proxy
+{$IFDEF WSLocal}
+  pDFeSSL.ProxyHost := EmptyStr;
+  pDFeSSL.ProxyPort := EmptyStr;
+  pDFeSSL.ProxyUser := EmptyStr;
+  pDFeSSL.ProxyPass := EmptyStr;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  pDFeSSL.ProxyHost := EmptyStr;
+  pDFeSSL.ProxyPort := EmptyStr;
+  pDFeSSL.ProxyUser := EmptyStr;
+  pDFeSSL.ProxyPass := EmptyStr;
+{$ELSE}
+  pDFeSSL.ProxyHost := puMiddleware.Config.Proxy.Host;
+  pDFeSSL.ProxyPort := IntToStr(puMiddleware.Config.Proxy.Porta);
+  pDFeSSL.ProxyUser := puMiddleware.Config.Proxy.Usuario;
+  pDFeSSL.ProxyPass := puMiddleware.Config.Proxy.Senha;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoGeralConfSSL(pGeralConf: TGeralConf);
+begin
+  if not Assigned(pGeralConf) then
+    raise Exception.Create('Configurações Gerais não informado!');
+
+  pGeralConf.SSLLib        := Self.GetSSLLib;
+  pGeralConf.SSLCryptLib   := Self.GetSSLCryptLib;
+  pGeralConf.SSLHttpLib    := Self.GetSSLHttpLib;
+  pGeralConf.SSLXmlSignLib := Self.GetSSLXmlSignLib;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrNFeDANFCEFR(ACBrNFeDANFCEFR: TACBrNFeDANFCEFR; const pCfgEmpresa: TCfgEmpresa;
+  const pImpressora: string; const pSetImpressora, pEhPrevia, pEhNotaManual: Boolean);
+begin
+  //RegistraLog('TTotallACBrHelper.ConfiguracaoTACBrNFeDANFCEFR - Inicia');
+  if not Assigned(ACBrNFeDANFCEFR) then
+    raise Exception.Create('ACBrNFeDANFCEFR não informado!');
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  {  if pEhPrevia then
+    ACBrNFeDANFCEFR.MarcaDaguaMSG := 'NFe SEM VALOR FISCAL - PRÉVIA DE VISUALIZAÇÃO';}
+
+  if GetEmpresaResponsavel = TEnumER_Eme4 then
+    ACBrNFeDANFCEFR.Sistema := 'Desenvolvido por: ' + EME4SISTEMAS_NOMESISTEMA + ' - ' + EME4SISTEMAS_WEBSITE
+  else if GetEmpresaResponsavel = TEnumER_TotaliSistemas then
+    ACBrNFeDANFCEFR.Sistema := TOTALISISTEMAS_NOMESISTEMA
+  else
+    ACBrNFeDANFCEFR.Sistema := TOTALLSISTEMAS_NOMESISTEMA;
+
+  //RegistraLog('TTotallACBrHelper.ConfiguracaoTACBrNFeDANFCEFR - Define informaçõs da Impressao');
+
+  ACBrNFeDANFCEFR.Site := pCfgEmpresa.ImpressaoNFe.WebSite;
+  //ACBrNFeDANFEFR.Email                 := CfgEmpresa.Email.Endereco;
+  ACBrNFeDANFCEFR.ImprimeCodigoEan := pCfgEmpresa.ImpressaoNFe.UsaCodigoEan;
+
+  // PDF
+  ACBrNFeDANFCEFR.UsaSeparadorPathPDF := True;
+  ACBrNFeDANFCEFR.PathPDF             := pCfgEmpresa.ImpressaoNFe.PathPDF;
+
+  // Impressão
+  ACBrNFeDANFCEFR.Impressora := EmptyStr;
+  if pSetImpressora then begin
+    RegistraLog('TTotallACBrHelper.ConfiguracaoTACBrNFeDANFCEFR - Impressora: "' + pImpressora + '"');
+    RegistraLog('TTotallACBrHelper.ConfiguracaoTACBrNFeDANFCEFR - Impressora Empresa: "' + pCfgEmpresa.ImpressaoNFe.Impressora + '"');
+    ACBrNFeDANFCEFR.Impressora := TServicoSO.GetNomeImpressoraValida(pImpressora, pCfgEmpresa.ImpressaoNFe.Impressora);
+  end;
+
+  //ACBrNFeDANFEFR.dmDanfe.frxReport.DotMatrixReport := True; // Monta impressão para matricial
+  ACBrNFeDANFCEFR.MostraSetup   := False; // Apresenta tela para seleção de definições da impressora
+  ACBrNFeDANFCEFR.MostraPreview := False; // Apresenta tela de preview da impressão
+  ACBrNFeDANFCEFR.MostraStatus  := False; // Apresenta progresso do processo de impressão
+
+  // Orientação
+  if (pEhNotaManual) then begin
+    ACBrNFeDANFCEFR.FastFile := TTotallACBrHelper.GetFileNameReportNM( pSetImpressora and (Trim(pImpressora)<>EmptyStr) );
+  end else begin
+    ACBrNFeDANFCEFR.FastFile := TTotallACBrHelper.GetFileNameReportNFCe( pSetImpressora and (Trim(pImpressora)<>EmptyStr) );
+  end;
+  ACBrNFeDANFCEFR.TipoDANFE := tiRetrato;
+
+  // Possição do Recibo
+  //ACBrNFeDANFCEFR.PosCanhoto := TConvACBr.ConvertePosicaoReciboDanfe(pCfgEmpresa.ImpressaoNFe.PosicaoReciboDanfe);
+
+  // Número de vias
+  ACBrNFeDANFCEFR.NumCopias := pCfgEmpresa.ImpressaoNFe.NumeroVias;
+
+  // Margens
+  {if pCfgEmpresa.ImpressaoNFe.MargemInferior <> EmptyStr then
+   ACBrNFeDANFCEFR.MargemInferior := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemInferior, 0);
+   if pCfgEmpresa.ImpressaoNFe.MargemSuperior <> EmptyStr then
+   ACBrNFeDANFCEFR.MargemSuperior := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemSuperior, 0);
+   if pCfgEmpresa.ImpressaoNFe.MargemEsquerda <> EmptyStr then
+   ACBrNFeDANFCEFR.MargemEsquerda := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemEsquerda, 0);
+   if pCfgEmpresa.ImpressaoNFe.MargemDireita <> EmptyStr then
+   ACBrNFeDANFCEFR.MargemDireita := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemDireita, 0);}
+
+  // Define modo silencioso no report para evitar mensagens de erros visuais.
+  //ACBrNFeDANFCEFR.dmDanfe.frxReport.EngineOptions.SilentMode := True;
+
+  // Imprimir Total Bruto no DANFE
+  // Setado em Configurações de Empresa > Impressão
+  ACBrNFeDANFCEFR.ImprimeTotalLiquido := pCfgEmpresa.ImpressaoNFe.ImprimeTotalLiquido;
+
+  // As configurações abaixo foram desabilitadas por dois motivos:
+  // - Reduzem significativamente o tamanho do PDF,
+  // - Na versão do Fast 5.1.12 ocorria erro de A.V.
+  ACBrNFeDANFCEFR.IncorporarBackgroundPdf := False;
+  ACBrNFeDANFCEFR.IncorporarFontesPdf     := False;
+
+  // Cabeçalho da DANFE
+  ACBrNFeDANFCEFR.ExpandeLogoMarca := pCfgEmpresa.ImpressaoNFe.ImprimeLogoExpandida;
+
+  // Define máscaras ou número de casas decimais para quantidade e valor unitário comercial.
+  //ACBrNFeDANFEFR.CasasDecimais.Formato      := tdetInteger;
+{$IFNDEF WSLocal}
+{$IFNDEF WSServiceMonitor}
+  //GES-2023028801 - Casas decimais configurada no ini do Middleware
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrNFeDANFCEFR.CasasDecimais.qCom   := puMiddleware.Ini.CasasDecimaisQntdNFe;
+    ACBrNFeDANFCEFR.CasasDecimais.vUnCom := puMiddleware.Ini.CasasDecimaisVUnitarioNFe;
+  end;
+{$ENDIF}
+{$ENDIF}
+  //ACBrNFeDANFEFR.CasasDecimais._vUnCom      := 2;
+  //ACBrNFeDANFEFR.CasasDecimais.Formato      := tdetMascara;
+  //ACBrNFeDANFEFR.CasasDecimais._Mask_qCom   := '###,###,###,##0.00';
+  //ACBrNFeDANFEFR.CasasDecimais._Mask_vUnCom := '###,###,###,##0.00';
+
+  TACBrNFeDANFEClass(ACBrNFeDANFCEFR).ImprimeDetalhamentoEspecifico := pCfgEmpresa.ImpressaoNFe.ImprimeDetalhamentoEspecifico;
+
+  //RegistraLog('TTotallACBrHelper.ConfiguracaoTACBrNFeDANFCEFR - Finaliza');
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrNFeDANFEFR(ACBrNFeDANFEFR: TACBrNFeDANFEFR; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean; const pEhPrevia: Boolean);
+begin
+  if not Assigned(ACBrNFeDANFEFR) then
+    raise Exception.Create('ACBrNFeDANFEFR não informado!');
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  if pEhPrevia then
+    ACBrNFeDANFEFR.MarcaDaguaMSG := 'NFe SEM VALOR FISCAL - PRÉVIA DE VISUALIZAÇÃO';
+
+  if GetEmpresaResponsavel = TEnumER_Eme4 then
+    ACBrNFeDANFEFR.Sistema := 'Desenvolvido por: ' + EME4SISTEMAS_NOMESISTEMA + ' - ' + EME4SISTEMAS_WEBSITE
+  else if GetEmpresaResponsavel = TEnumER_TotaliSistemas then
+    ACBrNFeDANFEFR.Sistema := TOTALISISTEMAS_NOMESISTEMA
+  else
+    ACBrNFeDANFEFR.Sistema := TOTALLSISTEMAS_NOMESISTEMA;
+
+  ACBrNFeDANFEFR.Site := pCfgEmpresa.ImpressaoNFe.WebSite;
+  //ACBrNFeDANFEFR.Email                 := CfgEmpresa.Email.Endereco;
+  ACBrNFeDANFEFR.ImprimeCodigoEan := pCfgEmpresa.ImpressaoNFe.UsaCodigoEan;
+
+  // PDF
+  ACBrNFeDANFEFR.UsaSeparadorPathPDF := True;
+  ACBrNFeDANFEFR.PathPDF             := pCfgEmpresa.ImpressaoNFe.PathPDF;
+
+  // Impressão
+  ACBrNFeDANFEFR.Impressora := EmptyStr;
+  if pSetImpressora then begin
+    ACBrNFeDANFEFR.Impressora := TServicoSO.GetNomeImpressoraValida(pImpressora, pCfgEmpresa.ImpressaoNFe.Impressora);
+  end;
+
+  //ACBrNFeDANFEFR.dmDanfe.frxReport.DotMatrixReport := True; // Monta impressão para matricial
+  ACBrNFeDANFEFR.MostraSetup   := False; // Apresenta tela para seleção de definições da impressora
+  ACBrNFeDANFEFR.MostraPreview := False; // Apresenta tela de preview da impressão
+  ACBrNFeDANFEFR.MostraStatus  := False; // Apresenta progresso do processo de impressão
+
+  // Orientação
+  case pCfgEmpresa.ImpressaoNFe.TipoImpressao of
+    TEnumTipoImpressao_Retrato: begin
+{$IFDEF WSLocal}
+        if pCfgEmpresa.ImpressaoNFe.LayoutDANFE <> '' then
+          ACBrNFeDANFEFR.FastFile := pCfgEmpresa.ImpressaoNFe.LayoutDANFE
+        else
+          ACBrNFeDANFEFR.FastFile := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_NFe_DANFE_Retrato;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+        if pCfgEmpresa.ImpressaoNFe.LayoutDANFE <> '' then
+          ACBrNFeDANFEFR.FastFile := pCfgEmpresa.ImpressaoNFe.LayoutDANFE
+        else
+          ACBrNFeDANFEFR.FastFile := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_NFe_DANFE_Retrato;
+{$ELSE}
+        if pCfgEmpresa.ImpressaoNFe.LayoutDANFE <> '' then
+          ACBrNFeDANFEFR.FastFile := pCfgEmpresa.ImpressaoNFe.LayoutDANFE
+        else if (UpperCase(puMiddleware.Ini.Sistema) = 'EME4') then
+          ACBrNFeDANFEFR.FastFile := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_NFe_DANFE_Retrato_EME4
+        else
+          ACBrNFeDANFEFR.FastFile := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_NFe_DANFE_Retrato;
+{$ENDIF}
+{$ENDIF}
+        ACBrNFeDANFEFR.TipoDANFE := tiRetrato;
+      end;
+    TEnumTipoImpressao_Paisagem: begin
+        if pCfgEmpresa.ImpressaoNFe.LayoutDANFE <> '' then
+          ACBrNFeDANFEFR.FastFile := pCfgEmpresa.ImpressaoNFe.LayoutDANFE
+        else
+          ACBrNFeDANFEFR.FastFile := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_NFe_DANFE_Paisagem;
+
+        ACBrNFeDANFEFR.TipoDANFE := tiPaisagem;
+      end;
+  end;
+
+  // Possição do Recibo
+  ACBrNFeDANFEFR.PosCanhoto := TConvACBr.ConvertePosicaoReciboDanfe(pCfgEmpresa.ImpressaoNFe.PosicaoReciboDanfe);
+
+  ACBrNFeDANFEFR.FastFileEvento       := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_NFe_DANFE_Evento;
+  ACBrNFeDANFEFR.FastFileInutilizacao := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_NFe_DANFE_Inutilizacao;
+
+  // Número de vias
+  ACBrNFeDANFEFR.NumCopias := pCfgEmpresa.ImpressaoNFe.NumeroVias;;
+
+  // Margens
+  if pCfgEmpresa.ImpressaoNFe.MargemInferior <> EmptyStr then
+    ACBrNFeDANFEFR.MargemInferior := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemInferior, 0);
+  if pCfgEmpresa.ImpressaoNFe.MargemSuperior <> EmptyStr then
+    ACBrNFeDANFEFR.MargemSuperior := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemSuperior, 0);
+  if pCfgEmpresa.ImpressaoNFe.MargemEsquerda <> EmptyStr then
+    ACBrNFeDANFEFR.MargemEsquerda := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemEsquerda, 0);
+  if pCfgEmpresa.ImpressaoNFe.MargemDireita <> EmptyStr then
+    ACBrNFeDANFEFR.MargemDireita := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemDireita, 0);
+
+  // Define modo silencioso no report para evitar mensagens de erros visuais.
+  ACBrNFeDANFEFR.dmDanfe.frxReport.EngineOptions.SilentMode := True;
+
+  // Imprimir Total Bruto no DANFE
+  // Setado em Configurações de Empresa > Impressão
+  ACBrNFeDANFEFR.ImprimeTotalLiquido := pCfgEmpresa.ImpressaoNFe.ImprimeTotalLiquido;
+
+  // As configurações abaixo foram desabilitadas por dois motivos:
+  // - Reduzem significativamente o tamanho do PDF,
+  // - Na versão do Fast 5.1.12 ocorria erro de A.V.
+  ACBrNFeDANFEFR.IncorporarBackgroundPdf := False;
+  ACBrNFeDANFEFR.IncorporarFontesPdf     := False;
+
+  // Cabeçalho da DANFE
+  ACBrNFeDANFEFR.ExpandeLogoMarca := pCfgEmpresa.ImpressaoNFe.ImprimeLogoExpandida;
+
+  // Define máscaras ou número de casas decimais para quantidade e valor unitário comercial.
+  //ACBrNFeDANFEFR.CasasDecimais.Formato      := tdetInteger;
+{$IFNDEF WSLocal}
+{$IFNDEF WSServiceMonitor}
+  //GES-2023028801 - Casas decimais configurada no ini do Middleware
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrNFeDANFEFR.CasasDecimais.qCom   := puMiddleware.Ini.CasasDecimaisQntdNFe;
+    ACBrNFeDANFEFR.CasasDecimais.vUnCom := puMiddleware.Ini.CasasDecimaisVUnitarioNFe;
+    ACBrNFeDANFEFR.ImprimeValor         := TImprimirUnidQtdeValor(puMiddleware.Ini.ImprimirUnidQtdeValor);
+  end;
+{$ENDIF}
+{$ENDIF}
+  //ACBrNFeDANFEFR.CasasDecimais._vUnCom      := 2;
+  //ACBrNFeDANFEFR.CasasDecimais.Formato      := tdetMascara;
+  //ACBrNFeDANFEFR.CasasDecimais._Mask_qCom   := '###,###,###,##0.00';
+  //ACBrNFeDANFEFR.CasasDecimais._Mask_vUnCom := '###,###,###,##0.00';
+
+  TACBrNFeDANFEClass(ACBrNFeDANFEFR).ImprimeDetalhamentoEspecifico := pCfgEmpresa.ImpressaoNFe.ImprimeDetalhamentoEspecifico;
+
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrMDFeDAMDFEFR(ACBrMDFeDAMDFEFR: TACBrMDFeDAMDFEFR; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string; const pSetImpressora: Boolean; const pEhPrevia: Boolean);
+begin
+  if not Assigned(ACBrMDFeDAMDFEFR) then
+    raise Exception.Create('ACBrMDFeDAMDFEFR não informado!');
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  // Configurações do DAMDFE
+  ACBrMDFeDAMDFEFR.Logo := pCfgEmpresa.ImpressaoMDFe.LogoMarca;
+
+  if pEhPrevia then
+    ACBrMDFeDAMDFEFR.MarcaDaguaMSG := 'MDFe SEM VALOR FISCAL - PRÉVIA DE VISUALIZAÇÃO';
+
+  if UpperCase(GetSistema) = UpperCase('eme4') then
+    ACBrMDFeDAMDFEFR.Sistema := 'Desenvolvido por: ' + EME4SISTEMAS_NOMESISTEMA + ' - ' + EME4SISTEMAS_WEBSITE
+  else
+    ACBrMDFeDAMDFEFR.Sistema := TOTALLSISTEMAS_NOMESISTEMA;
+
+  ACBrMDFeDAMDFEFR.Site := pCfgEmpresa.ImpressaoMDFe.WebSite;
+
+  // PDF
+  ACBrMDFeDAMDFEFR.UsaSeparadorPathPDF := True;
+  ACBrMDFeDAMDFEFR.PathPDF             := pCfgEmpresa.ImpressaoMDFe.PathPDF;
+
+  // Impressão
+  ACBrMDFeDAMDFEFR.Impressora := EmptyStr;
+  if pSetImpressora then begin
+    ACBrMDFeDAMDFEFR.Impressora := TServicoSO.GetNomeImpressoraValida(pImpressora, pCfgEmpresa.ImpressaoMDFe.Impressora);
+  end;
+
+  ACBrMDFeDAMDFEFR.MostraSetup   := False; // Apresenta tela para seleção de definições da impressora
+  ACBrMDFeDAMDFEFR.MostraPreview := False; // Apresenta tela de preview da impressão
+  ACBrMDFeDAMDFEFR.MostraStatus  := False; // Apresenta progresso do processo de impressão
+
+  // Orientação
+  case pCfgEmpresa.ImpressaoMDFe.TipoImpressao of
+    TEnumTipoImpressao_Retrato: begin
+        ACBrMDFeDAMDFEFR.FastFile   := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_MDFe_DAMDFE_Retrato;
+        ACBrMDFeDAMDFEFR.TipoDAMDFE := tiRetrato;
+      end;
+    TEnumTipoImpressao_Paisagem: begin
+        ACBrMDFeDAMDFEFR.FastFile   := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_MDFe_DAMDFE_Paisagem;
+        ACBrMDFeDAMDFEFR.TipoDAMDFE := tiPaisagem;
+      end;
+  end;
+
+  ACBrMDFeDAMDFEFR.FastFileEvento := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_MDFe_DAMDFE_Evento;
+
+  // Número de vias
+  ACBrMDFeDAMDFEFR.NumCopias := pCfgEmpresa.ImpressaoMDFe.NumeroVias;;
+
+  // Margens
+  if pCfgEmpresa.ImpressaoMDFe.MargemInferior <> EmptyStr then
+    ACBrMDFeDAMDFEFR.MargemInferior := StrToFloatDef(pCfgEmpresa.ImpressaoMDFe.MargemInferior, 0);
+  if pCfgEmpresa.ImpressaoMDFe.MargemSuperior <> EmptyStr then
+    ACBrMDFeDAMDFEFR.MargemSuperior := StrToFloatDef(pCfgEmpresa.ImpressaoMDFe.MargemSuperior, 0);
+  if pCfgEmpresa.ImpressaoMDFe.MargemEsquerda <> EmptyStr then
+    ACBrMDFeDAMDFEFR.MargemEsquerda := StrToFloatDef(pCfgEmpresa.ImpressaoMDFe.MargemEsquerda, 0);
+  if pCfgEmpresa.ImpressaoMDFe.MargemDireita <> EmptyStr then
+    ACBrMDFeDAMDFEFR.MargemDireita := StrToFloatDef(pCfgEmpresa.ImpressaoMDFe.MargemDireita, 0);
+
+  // Define modo silencioso no report para evitar mensagens de erros visuais.
+  ACBrMDFeDAMDFEFR.frxReport.EngineOptions.SilentMode := True;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrCTeDACTEFR(ACBrCTeDACTEFR: TACBrCTeDACTEFR; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean; const pEhPrevia: Boolean);
+begin
+  if not Assigned(ACBrCTeDACTEFR) then
+    raise Exception.Create('ACBrCTeDACTEFR não informado!');
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  // Configurações do DACTE
+  ACBrCTeDACTEFR.Logo := pCfgEmpresa.ImpressaoCTe.LogoMarca;
+
+  if pEhPrevia then
+    ACBrCTeDACTEFR.MarcaDaguaMSG := 'CTe SEM VALOR FISCAL - PRÉVIA DE VISUALIZAÇÃO';
+
+  if GetEmpresaResponsavel = TEnumER_Eme4 then
+    ACBrCTeDACTEFR.Sistema := 'Desenvolvido por: ' + EME4SISTEMAS_NOMESISTEMA + ' - ' + EME4SISTEMAS_WEBSITE
+  else if GetEmpresaResponsavel = TEnumER_TotaliSistemas then
+    ACBrCTeDACTEFR.Sistema := TOTALISISTEMAS_NOMESISTEMA
+  else
+    ACBrCTeDACTEFR.Sistema := TOTALLSISTEMAS_NOMESISTEMA;
+
+  ACBrCTeDACTEFR.Site := pCfgEmpresa.ImpressaoCTe.WebSite;
+
+  // PDF
+  ACBrCTeDACTEFR.UsaSeparadorPathPDF := True;
+  ACBrCTeDACTEFR.PathPDF             := pCfgEmpresa.ImpressaoCTe.PathPDF;
+
+  // Impressão
+  ACBrCTeDACTEFR.Impressora := EmptyStr;
+  if pSetImpressora then begin
+    ACBrCTeDACTEFR.Impressora := TServicoSO.GetNomeImpressoraValida(pImpressora, pCfgEmpresa.ImpressaoCTe.Impressora);
+  end;
+
+  ACBrCTeDACTEFR.MostraSetup   := False; // Apresenta tela para seleção de definições da impressora
+  ACBrCTeDACTEFR.MostraPreview := False; // Apresenta tela de preview da impressão
+  ACBrCTeDACTEFR.MostraStatus  := False; // Apresenta progresso do processo de impressão
+
+  // Orientação
+  case pCfgEmpresa.ImpressaoCTe.TipoImpressao of
+    TEnumTipoImpressao_Retrato: begin
+        ACBrCTeDACTEFR.FastFile  := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_CTe_DACTE_Retrato;
+        ACBrCTeDACTEFR.TipoDACTE := tiRetrato;
+      end;
+    TEnumTipoImpressao_Paisagem: begin
+        ACBrCTeDACTEFR.FastFile  := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_CTe_DACTE_Paisagem;
+        ACBrCTeDACTEFR.TipoDACTE := tiPaisagem;
+      end;
+  end;
+
+  // Possição do Recibo
+  ACBrCTeDACTEFR.PosCanhoto := TConvACBr.ConvertePosicaoReciboDacte(pCfgEmpresa.ImpressaoCTe.PosicaoReciboDacte);
+
+  ACBrCTeDACTEFR.FastFileEvento       := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_CTe_DACTE_Evento;
+  ACBrCTeDACTEFR.FastFileInutilizacao := GetPathCompleto(DIRETORIO_REPORT) + FileNameReport_CTe_DACTE_Inutilizacao;
+
+  // Número de vias
+  ACBrCTeDACTEFR.NumCopias := pCfgEmpresa.ImpressaoCTe.NumeroVias;;
+
+  // Margens
+  if pCfgEmpresa.ImpressaoCTe.MargemInferior <> EmptyStr then
+    ACBrCTeDACTEFR.MargemInferior := StrToFloatDef(pCfgEmpresa.ImpressaoCTe.MargemInferior, 0);
+  if pCfgEmpresa.ImpressaoCTe.MargemSuperior <> EmptyStr then
+    ACBrCTeDACTEFR.MargemSuperior := StrToFloatDef(pCfgEmpresa.ImpressaoCTe.MargemSuperior, 0);
+  if pCfgEmpresa.ImpressaoCTe.MargemEsquerda <> EmptyStr then
+    ACBrCTeDACTEFR.MargemEsquerda := StrToFloatDef(pCfgEmpresa.ImpressaoCTe.MargemEsquerda, 0);
+  if pCfgEmpresa.ImpressaoCTe.MargemDireita <> EmptyStr then
+    ACBrCTeDACTEFR.MargemDireita := StrToFloatDef(pCfgEmpresa.ImpressaoCTe.MargemDireita, 0);
+
+  // Define modo silencioso no report para evitar mensagens de erros visuais.
+  ACBrCTeDACTEFR.frxReport.EngineOptions.SilentMode := True;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrCTeDACTEFREvento(ACBrCTeDACTEFR: TACBrCTeDACTEFR; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean);
+begin
+  Self.ConfiguracaoTACBrCTeDACTEFR(ACBrCTeDACTEFR, pCfgEmpresa, pImpressora, pSetImpressora);
+
+  // Para Evendo define Orientação do Report como Retrato
+  ACBrCTeDACTEFR.TipoDACTE := tiRetrato;
+
+  // Para Evendo define Número de vias como apenas 1
+  ACBrCTeDACTEFR.NumCopias := 1;
+
+  // As configurações abaixo foram desabilitadas por dois motivos:
+  // - Reduzem significativamente o tamanho do PDF,
+  // - Na versão do Fast 5.1.12 ocorria erro de A.V.
+  //  ACBrCTeDACTEFR.IncorporarBackgroundPdf := False;
+  //  ACBrCTeDACTEFR.IncorporarFontesPdf     := False;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrNFeDANFEFREvento(ACBrNFeDANFEFR: TACBrNFeDANFEFR; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean);
+begin
+  Self.ConfiguracaoTACBrNFeDANFEFR(ACBrNFeDANFEFR, pCfgEmpresa, pImpressora, pSetImpressora);
+
+  // Para Evendo define Orientação do Report como Retrato
+  ACBrNFeDANFEFR.TipoDANFE := tiRetrato;
+
+  // Para Evendo define Número de vias como apenas 1
+  ACBrNFeDANFEFR.NumCopias := 1;
+
+  // As configurações abaixo foram desabilitadas por dois motivos:
+  // - Reduzem significativamente o tamanho do PDF,
+  // - Na versão do Fast 5.1.12 ocorria erro de A.V.
+  ACBrNFeDANFEFR.IncorporarBackgroundPdf := False;
+  ACBrNFeDANFEFR.IncorporarFontesPdf     := False;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrNFSeXCfgEmpresa(ACBrNFSeX: TACBrNFSeX; const pCfgEmpresa: TCfgEmpresa);
+var
+  iCodigoUfIbge: Integer;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+  if not Assigned(ACBrNFSeX) then
+    raise Exception.Create('ACBrNFSeX não informado!');
+   if Trim(pCfgEmpresa.Certificado.NumSerie) = EmptyStr then
+    raise Exception.Create('Número de Série do certificado não informado no WSMiddleware para o CNPJ ' + pCfgEmpresa.CNPJ + '.');
+  if Trim(pCfgEmpresa.DadosNFSe.InscricaoMunicipal) = EmptyStr then
+    raise Exception.Create('Inscrição Municipal não informada no WSMiddleware para o CNPJ ' + pCfgEmpresa.CNPJ + '.');
+  if Trim(pCfgEmpresa.WebServiceNFSe.CodigoMunicipioIbge) = EmptyStr then
+    raise Exception.Create('Município não informado nas configurações de WebService da NFS-e no WSMiddleware para o CNPJ ' + pCfgEmpresa.CNPJ + '.');
+  if Trim(pCfgEmpresa.Nome) = EmptyStr then
+    raise Exception.Create('Razão Social (Nome) não informado no WSMiddleware para o CNPJ ' + pCfgEmpresa.CNPJ + '.');
+
+  SetCertificado(ACBrNFSeX.Configuracoes.Geral, ACBrNFSeX.Configuracoes.Certificados, pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie);
+  ACBrNFSeX.Configuracoes.WebServices.SSLType            := GetSSLType_PorMunicipio(StrToInt(pCfgEmpresa.WebServiceNFSe.CodigoMunicipioIbge));
+  ACBrNFSeX.Configuracoes.Certificados.VerificarValidade := True;
+
+  iCodigoUfIbge                                 := StrToIntDef(Copy(pCfgEmpresa.WebServiceNFSe.CodigoMunicipioIbge, 1, 2), 0);
+  ACBrNFSeX.Configuracoes.WebServices.Ambiente   := TConvACBr.ConverteAmbienteSEFAZ(pCfgEmpresa.WebServiceNFSe.Ambiente);
+  ACBrNFSeX.Configuracoes.WebServices.Visualizar := False; // Evita que algumas mensagens sejam mostradas
+  ACBrNFSeX.Configuracoes.WebServices.UF         := TEnum.UFToSigla(TEnum.UFFromCodigoIbge(iCodigoUfIbge));
+{$IFDEF WSLocal}
+  ACBrNFSeX.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrNFSeX.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrNFSeX.Configuracoes.WebServices.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    ACBrNFSeX.Configuracoes.WebServices.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+
+{$IFDEF WSLocal}
+  ACBrNFSeX.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrNFSeX.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrNFSeX.Configuracoes.Geral.Salvar := puMiddleware.Ini.SalvarApenasNFSeProcessadas;
+  end else begin
+    ACBrNFSeX.Configuracoes.Geral.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  ACBrNFSeX.Configuracoes.Geral.CodigoMunicipio       := StrToIntDef(pCfgEmpresa.WebServiceNFSe.CodigoMunicipioIbge, 0);
+  //ACBrNFSeX.Configuracoes.Geral.UserWeb               := pCfgEmpresa.WebServiceNFSe.Usuario;
+  //ACBrNFSeX.Configuracoes.Geral.SenhaWeb              := pCfgEmpresa.WebServiceNFSe.Senha;
+  ACBrNFSeX.Configuracoes.Geral.Emitente.CNPJ         := pCfgEmpresa.CNPJ;
+  ACBrNFSeX.Configuracoes.Geral.Emitente.InscMun      := pCfgEmpresa.DadosNFSe.InscricaoMunicipal;
+  ACBrNFSeX.Configuracoes.Geral.Emitente.RazSocial    := pCfgEmpresa.Nome;
+  ACBrNFSeX.Configuracoes.Geral.Emitente.WSUser       := pCfgEmpresa.WebServiceNFSe.Usuario;
+  ACBrNFSeX.Configuracoes.Geral.Emitente.WSSenha      := pCfgEmpresa.WebServiceNFSe.Senha;
+  ACBrNFSeX.Configuracoes.Geral.Emitente.WSFraseSecr  := EmptyStr;
+  ACBrNFSeX.Configuracoes.Geral.ConsultaLoteAposEnvio := False;
+  ACBrNFSeX.Configuracoes.Geral.RetirarEspacos        := False;
+
+  ACBrNFSeX.Configuracoes.Arquivos.AdicionarLiteral := True; // Não foi encontrada utilização para propriedade na NFSe
+  ACBrNFSeX.Configuracoes.Arquivos.EmissaoPathNFSe  := True; // Define se usa data de emissão ou data do sistema para definir o path
+  ACBrNFSeX.Configuracoes.Arquivos.TabServicosExt   := False; // Utilizada para buscar descrição do serviço em arquivo externo ".\TabServicos.txt"
+  ACBrNFSeX.Configuracoes.Arquivos.SepararPorModelo := True;
+  ACBrNFSeX.Configuracoes.Arquivos.SepararPorAno    := True;
+  ACBrNFSeX.Configuracoes.Arquivos.SepararPorMes    := True;
+  ACBrNFSeX.Configuracoes.Arquivos.SepararPorCNPJ   := True;
+  ACBrNFSeX.Configuracoes.Arquivos.Salvar           := True;
+  ACBrNFSeX.Configuracoes.Arquivos.NomeLongoNFSe    := True;
+  ACBrNFSeX.Configuracoes.Arquivos.PathSalvar       := PathWithDelim(pCfgEmpresa.PathSalvar);
+  ACBrNFSeX.Configuracoes.Arquivos.PathGer          := ACBrNFSeX.Configuracoes.Arquivos.PathSalvar;
+  ACBrNFSeX.Configuracoes.Arquivos.PathCan          := ACBrNFSeX.Configuracoes.Arquivos.PathSalvar;
+  ACBrNFSeX.Configuracoes.Arquivos.PathRPS          := ACBrNFSeX.Configuracoes.Arquivos.PathSalvar;
+  ACBrNFSeX.Configuracoes.Arquivos.PathNFSe         := ACBrNFSeX.Configuracoes.Arquivos.PathSalvar;
+  ACBrNFSeX.Configuracoes.Arquivos.PathSchemas      := TTotallACBrHelper.PathSchemasTACBrNFSeX(ACBrNFSeX.Configuracoes.WebServices.Ambiente);
+
+  ACBrNFSeX.Configuracoes.Arquivos.DownloadDFe.SepararPorNome := False;
+   ACBrNFSeX.Configuracoes.Arquivos.DownloadDFe.PathDownload := ACBrNFSeX.Configuracoes.Arquivos.PathSalvar;
+
+{$IFDEF WSLocal}
+  ACBrNFSeX.Configuracoes.Arquivos.Salvar := True;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrNFSeX.Configuracoes.Arquivos.Salvar := True;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrNFSeX.Configuracoes.Arquivos.Salvar := puMiddleware.Ini.SalvarApenasNFeProcessadas;
+  end else begin
+    ACBrNFSeX.Configuracoes.Arquivos.Salvar := True;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrNFSeXDANFSeFR(ACBrNFSeXDANFSeFR: TACBrNFSeXDANFSeFR; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean);
+begin
+  if not Assigned(ACBrNFSeXDANFSeFR) then
+    raise Exception.Create('ACBrNFSeXDANFSeFR não informado!');
+
+  // Configurações do DANFE
+  if Assigned(pCfgEmpresa) then begin
+    ACBrNFSeXDANFSeFR.Logo           := pCfgEmpresa.ImpressaoNFSe.LogoMarcaPrefeitura;
+    ACBrNFSeXDANFSeFR.Prestador.Logo := pCfgEmpresa.ImpressaoNFSe.LogoMarcaPrestador;
+    //ACBrNFSeXDANFSeFR.PrestLogo := pCfgEmpresa.ImpressaoNFe.LogoMarca;
+  end;
+
+  if GetEmpresaResponsavel = TEnumER_Eme4 then begin
+    ACBrNFSeXDANFSeFR.Sistema := EME4SISTEMAS_NOMESISTEMA;
+  end else if GetEmpresaResponsavel = TEnumER_TotaliSistemas then begin
+    ACBrNFSeXDANFSeFR.Sistema := TOTALISISTEMAS_NOMESISTEMA;
+  end else begin
+    ACBrNFSeXDANFSeFR.Sistema := TOTALLSISTEMAS_NOMESISTEMA;
+  end;
+
+  if Assigned(pCfgEmpresa) then begin
+    ACBrNFSeXDANFSeFR.Site := pCfgEmpresa.ImpressaoNFe.WebSite;
+    //ACBrNFSeXDANFSeFR.Email                 := pCfgEmpresa.Email.Endereco;
+    //ACBrNFSeXDANFSeFR.ImprimeCanhoto := pCfgEmpresa.ImpressaoNFSe.ImprimeCanhoto;
+    //ACBrNFSeXDANFSeFR.Prefeitura := CodCidadeToCidade(StrToIntDef(pCfgEmpresa.WebServiceNFSe.CodigoMunicipioIbge, 0));
+  end;
+
+  // PDF
+  ACBrNFSeXDANFSeFR.UsaSeparadorPathPDF := True;
+  if Assigned(pCfgEmpresa) then begin
+   ACBrNFSeXDANFSeFR.PathPDF   := pCfgEmpresa.ImpressaoNFe.PathPDF;
+  end else begin
+    ACBrNFSeXDANFSeFR.PathPDF  := GetPathCompleto(PathDefaultArquivos + DIRETORIO_PDF_NFSE);
+  end;
+
+  // Impressão
+  ACBrNFSeXDANFSeFR.Impressora := EmptyStr;
+  if pSetImpressora then begin
+    ACBrNFSeXDANFSeFR.Impressora := TServicoSO.GetNomeImpressoraValida(pImpressora, ''); //pCfgEmpresa.ImpressaoNFSe.Impressora);
+  end;
+
+  //ACBrNFSeXDANFSeFR.frxReport.DotMatrixReport := True; // Monta impressão para matricial
+  ACBrNFSeXDANFSeFR.MostraSetup   := False; // Apresenta tela para seleção de definições da impressora
+  ACBrNFSeXDANFSeFR.MostraPreview := False; // Apresenta tela de preview da impressão
+  ACBrNFSeXDANFSeFR.MostraStatus  := False; // Apresenta progresso do processo de impressão
+
+  // Orientação
+  if Assigned(pCfgEmpresa) then begin
+    case pCfgEmpresa.ImpressaoNFe.TipoImpressao of
+      TEnumTipoImpressao_Retrato: begin
+          ACBrNFSeXDANFSeFR.FastFile   := GetPathCompleto(DIRETORIO_NFSE_REPORT) + FileNameReport_NFSeX_DANFE_Retrato;
+          ACBrNFSeXDANFSeFR.TipoDANFSE := tpPadrao; //  TTipoDANFSE = ( tpPadrao, tpIssDSF, tpFiorilli );
+        end;
+      TEnumTipoImpressao_Paisagem: begin
+          ACBrNFSeXDANFSeFR.FastFile   := GetPathCompleto(DIRETORIO_NFSE_REPORT) + FileNameReport_NFSeX_DANFE_Retrato;
+          ACBrNFSeXDANFSeFR.TipoDANFSE := tpPadrao; //  TTipoDANFSE = ( tpPadrao, tpIssDSF, tpFiorilli );
+        end;
+    end;
+  end else begin
+     ACBrNFSeXDANFSeFR.FastFile   := GetPathCompleto(DIRETORIO_NFSE_REPORT) + FileNameReport_NFSeX_DANFE_Retrato;
+     ACBrNFSeXDANFSeFR.TipoDANFSE := tpPadrao; //  TTipoDANFSE = ( tpPadrao, tpIssDSF, tpFiorilli );
+  end;
+
+  // Possição do Recibo
+  //ACBrNFSeXDANFSeFR.PosCanhoto := TConvACBr.ConvertePosicaoReciboDanfe(pCfgEmpresa.ImpressaoNFe.PosicaoReciboDanfe);
+
+  // Número de vias
+  if Assigned(pCfgEmpresa) then begin
+    ACBrNFSeXDANFSeFR.NumCopias := pCfgEmpresa.ImpressaoNFe.NumeroVias;;
+  end;
+
+  // Margens
+  if Assigned(pCfgEmpresa) then begin
+  if pCfgEmpresa.ImpressaoNFe.MargemInferior <> EmptyStr then
+    ACBrNFSeXDANFSeFR.MargemInferior := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemInferior, 0);
+  if pCfgEmpresa.ImpressaoNFe.MargemSuperior <> EmptyStr then
+    ACBrNFSeXDANFSeFR.MargemSuperior := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemSuperior, 0);
+  if pCfgEmpresa.ImpressaoNFe.MargemEsquerda <> EmptyStr then
+    ACBrNFSeXDANFSeFR.MargemEsquerda := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemEsquerda, 0);
+  if pCfgEmpresa.ImpressaoNFe.MargemDireita <> EmptyStr then
+    ACBrNFSeXDANFSeFR.MargemDireita := StrToFloatDef(pCfgEmpresa.ImpressaoNFe.MargemDireita, 0);
+  end;
+
+  // Define modo silencioso no report para evitar mensagens de erros visuais.
+  ACBrNFSeXDANFSeFR.frxReport.EngineOptions.SilentMode := True;
+
+  // As configurações abaixo foram desabilitadas por dois motivos:
+  // - Reduzem significativamente o tamanho do PDF,
+  // - Na versão do Fast 5.1.12 ocorria erro de A.V.
+  //ACBrNFSeXDANFSeFR.IncorporarBackgroundPdf := False;
+  //ACBrNFSeXDANFSeFR.IncorporarFontesPdf     := False;
+
+  // Define máscaras ou número de casas decimais para quantidade e valor unitário comercial.
+  //ACBrNFSeXDANFSeFR.CasasDecimais.Formato      := tdetInteger;
+  //ACBrNFSeXDANFSeFR.CasasDecimais._qCom        := 2;
+  //ACBrNFSeXDANFSeFR.CasasDecimais._vUnCom      := 2;
+  //ACBrNFSeXDANFSeFR.CasasDecimais.Formato      := tdetMascara;
+  //ACBrNFSeXDANFSeFR.CasasDecimais._Mask_qCom   := '###,###,###,##0.00';
+  //ACBrNFSeXDANFSeFR.CasasDecimais._Mask_vUnCom := '###,###,###,##0.00';
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrBALCfgDevice(ACBrBAL: TACBrBAL; const pModelo: TACBrBALModelo; const pCfgDevice: TCfgDevice);
+begin
+  if not Assigned(pCfgDevice) then
+    raise Exception.Create('Configurações do Device não definidas!');
+  if not Assigned(ACBrBAL) then
+    raise Exception.Create('ACBrBAL não informado!');
+  if (pModelo = balNenhum) then
+    raise Exception.Create('Modelo não informado!');
+
+  ACBrBAL.Modelo := pModelo;
+  ACBrBAL.Porta  := pCfgDevice.Porta;
+  Self.ConfiguracaoTACBrDeviceCfgDevice(ACBrBAL.Device, pCfgDevice);
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrBlocoXCfgEmpresa(ACBrBlocoX: TACBrBlocoX; const pCfgEmpresa: TCfgEmpresa);
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+  if not Assigned(ACBrBlocoX) then
+    raise Exception.Create('ACBrBlocoX não informado!');
+
+  SetCertificado(ACBrBlocoX.Configuracoes.Geral, ACBrBlocoX.Configuracoes.Certificados, pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie);
+  SetWebServices(ACBrBlocoX.Configuracoes.WebServices, pCfgEmpresa);
+
+  ACBrBlocoX.Configuracoes.Geral.Salvar              := True;
+  ACBrBlocoX.Configuracoes.Arquivos.AdicionarLiteral := False;
+  ACBrBlocoX.Configuracoes.Arquivos.Salvar           := True;
+  ACBrBlocoX.Configuracoes.Arquivos.SepararPorCNPJ   := True;
+  ACBrBlocoX.Configuracoes.Arquivos.SepararPorModelo := True;
+  ACBrBlocoX.Configuracoes.Arquivos.SepararPorAno    := True;
+  ACBrBlocoX.Configuracoes.Arquivos.SepararPorMes    := True;
+  ACBrBlocoX.Configuracoes.Arquivos.SepararPorDia    := True;
+  ACBrBlocoX.Configuracoes.Arquivos.PathSalvar       := PathWithDelim(pCfgEmpresa.PathSalvar);
+  { TODO: Path Schemas não definido pois não temos o pacote para distribuição }
+  //ACBrBlocoX.Configuracoes.Arquivos.PathSchemas      := PathDefaultArquivos + 'Schemas\BlocoX';
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrBoletoContaBancaria(ACBrBoleto: TACBrBoleto; const pContaBancaria: TContaBancaria);
+begin
+  if not Assigned(ACBrBoleto) then
+    raise Exception.Create('ACBrBoleto não informado!');
+  if not Assigned(pContaBancaria) then
+    raise Exception.Create('Conta Bancaria não informado!');
+  if not Assigned(pContaBancaria.Titular) then
+    raise Exception.Create('Titular da Conta Bancaria não informado!');
+  if (Trim(pContaBancaria.Carteira) = EmptyStr) then
+    raise Exception.Create('Carteira da Conta Bancaria não informada!');
+
+  // Número do Arquivo de Remessa o qual originou o arquivo de Retorno
+  //ACBrBoleto.NumeroArquivo := pContaBancaria.SequenciaRemessa
+
+  // Quando não definido Nome para o Arquivo de Remessa o mesmo será gerado internamente pelo ACBr conforme sequencia na pasta e Banco Ex:
+  //ACBrBoleto.NomeArqRemessa := 'cb' + FormatDateTime( 'ddmm', Now ) + IntToStrZero( pContaBancaria.SequenciaRemessa, 2 ) + '.rem';
+
+  { TODO: Verificar como será definido o Layout da Remessa visto que não temos configuração para a mesma essa definição é interna nas configurações do CobreBemX }
+  ACBrBoleto.LayoutRemessa := TConvACBr.ConverteLayoutRemessa(pContaBancaria.LayoutRemessa);
+
+  ACBrBoleto.Cedente.Nome          := pContaBancaria.Titular.RazaoSocial;
+  ACBrBoleto.Cedente.CNPJCPF       := pContaBancaria.Titular.Documento;
+  ACBrBoleto.Cedente.TipoInscricao := TConvACBr.ConverteTipoParceiroCedente(pContaBancaria.Titular.TipoPessoa);
+  ACBrBoleto.Cedente.Logradouro    := pContaBancaria.Titular.EnderecoList.First.Logradouro;
+  ACBrBoleto.Cedente.NumeroRes     := pContaBancaria.Titular.EnderecoList.First.Numero;
+  ACBrBoleto.Cedente.Complemento   := pContaBancaria.Titular.EnderecoList.First.Comple;
+  ACBrBoleto.Cedente.Bairro        := pContaBancaria.Titular.EnderecoList.First.Bairro;
+  ACBrBoleto.Cedente.Cidade        := pContaBancaria.Titular.EnderecoList.First.Cidade;
+  ACBrBoleto.Cedente.UF            := pContaBancaria.Titular.EnderecoList.First.SiglaUF;
+  ACBrBoleto.Cedente.CEP           := pContaBancaria.Titular.EnderecoList.First.CEP;
+  ACBrBoleto.Cedente.Telefone      := ifThen(pContaBancaria.Titular.EnderecoList.First.DDD > EmptyStr, '(' + pContaBancaria.Titular.EnderecoList.First.DDD + ') ', EmptyStr) +
+     pContaBancaria.Titular.EnderecoList.First.Telefone;
+
+  ACBrBoleto.Banco.TipoCobranca := TConvACBr.GetTipoCobrancaBancaria(StrToIntDef(pContaBancaria.CodigoBanco, 0));
+
+  ACBrBoleto.Cedente.Agencia := pContaBancaria.NumeroAgencia;
+  //TODO: ACBrBoleto não aceita dígito da Agência vazio quando Banco diferente de Banestes, assim informo espaço no dígito da agência quando informado vazio.
+  //      CobreBemX não exige o dígito da agência para geração do Boleto
+  ACBrBoleto.Cedente.AgenciaDigito                 := ifThen(pContaBancaria.DigitoAgencia = EmptyStr, ' ', pContaBancaria.DigitoAgencia);
+  ACBrBoleto.Cedente.Conta                         := pContaBancaria.ContaCorrente;
+  ACBrBoleto.Cedente.ContaDigito                   := pContaBancaria.DigitoContaCorrente;
+  ACBrBoleto.Cedente.DigitoVerificadorAgenciaConta := pContaBancaria.DigitoVerificadorAgenciaConta;
+  ACBrBoleto.Cedente.Modalidade                    := pContaBancaria.CodigoModalidade;
+  ACBrBoleto.Cedente.Convenio                      := pContaBancaria.CodigoConvenio;
+  ACBrBoleto.Cedente.CodigoCedente                 := pContaBancaria.CodigoCedente;
+  ACBrBoleto.Cedente.CodigoTransmissao             := pContaBancaria.CodigoTransmissao;
+  ACBrBoleto.Cedente.CaracTitulo                   := TConvACBr.ConverteCaracteristicaCarteira(pContaBancaria.CaracteristicaCarteira);
+  ACBrBoleto.Cedente.TipoDocumento                 := TConvACBr.ConverteTipoDocumento(pContaBancaria.TipoDocumento);
+  ACBrBoleto.Cedente.TipoCarteira                  := TConvACBr.ConverteTipoCarteira(pContaBancaria.TipoCarteira);
+  ACBrBoleto.Cedente.ResponEmissao                 := TConvACBr.ConverteResponEmissao(pContaBancaria.ResponEmissao);
+
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrCHQCfgDevice(ACBrCHQ: TACBrCHQ; const pModelo: TACBrCHQModelo; const pCfgDevice: TCfgDevice;
+  const pArquivoBemaFiINI: string);
+begin
+  if not Assigned(pCfgDevice) then
+    raise Exception.Create('Configurações do Device não definidas!');
+  if not Assigned(ACBrCHQ) then
+    raise Exception.Create('ACBrCHQ não informado!');
+  if (pModelo = chqNenhuma) then
+    raise Exception.Create('Modelo não informado!');
+  if (pModelo = chqImpressoraECF) then
+    raise Exception.Create('Para Impressão de Cheque em Impressora Fiscal utilize o método "TTotallECFWS.ECF_ImprimeCheque".');
+
+  ACBrCHQ.Modelo := pModelo;
+  ACBrCHQ.Porta  := pCfgDevice.Porta;
+  Self.ConfiguracaoTACBrDeviceCfgDevice(ACBrCHQ.Device, pCfgDevice);
+  if pArquivoBemaFiINI <> EmptyStr then
+    ACBrCHQ.ArquivoBemaFiINI := pArquivoBemaFiINI;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrConsultaCNPJCfgEmpresa(ACBrConsultaCNPJ: TACBrConsultaCNPJ);
+begin
+  if not Assigned(ACBrConsultaCNPJ) then
+    raise Exception.Create('ACBrConsultaCNPJ não informado!');
+
+  ACBrConsultaCNPJ.PesquisarIBGE := False;
+
+{$IFDEF WSLocal}
+  ACBrConsultaCNPJ.ProxyHost := EmptyStr;
+  ACBrConsultaCNPJ.ProxyPort := EmptyStr;
+  ACBrConsultaCNPJ.ProxyUser := EmptyStr;
+  ACBrConsultaCNPJ.ProxyPass := EmptyStr;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrConsultaCNPJ.ProxyHost := EmptyStr;
+  ACBrConsultaCNPJ.ProxyPort := EmptyStr;
+  ACBrConsultaCNPJ.ProxyUser := EmptyStr;
+  ACBrConsultaCNPJ.ProxyPass := EmptyStr;
+{$ELSE}
+  ACBrConsultaCNPJ.ProxyHost := puMiddleware.Config.Proxy.Host;
+  ACBrConsultaCNPJ.ProxyPort := IntToStr(puMiddleware.Config.Proxy.Porta);
+  ACBrConsultaCNPJ.ProxyUser := puMiddleware.Config.Proxy.Usuario;
+  ACBrConsultaCNPJ.ProxyPass := puMiddleware.Config.Proxy.Senha;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrConsultaCPFCfgEmpresa(ACBrConsultaCPF: TACBrConsultaCPF);
+begin
+  if not Assigned(ACBrConsultaCPF) then
+    raise Exception.Create('ACBrConsultaCPF não informado!');
+
+{$IFDEF WSLocal}
+  ACBrConsultaCPF.ProxyHost := EmptyStr;
+  ACBrConsultaCPF.ProxyPort := EmptyStr;
+  ACBrConsultaCPF.ProxyUser := EmptyStr;
+  ACBrConsultaCPF.ProxyPass := EmptyStr;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrConsultaCPF.ProxyHost := EmptyStr;
+  ACBrConsultaCPF.ProxyPort := EmptyStr;
+  ACBrConsultaCPF.ProxyUser := EmptyStr;
+  ACBrConsultaCPF.ProxyPass := EmptyStr;
+{$ELSE}
+  ACBrConsultaCPF.ProxyHost := puMiddleware.Config.Proxy.Host;
+  ACBrConsultaCPF.ProxyPort := IntToStr(puMiddleware.Config.Proxy.Porta);
+  ACBrConsultaCPF.ProxyUser := puMiddleware.Config.Proxy.Usuario;
+  ACBrConsultaCPF.ProxyPass := puMiddleware.Config.Proxy.Senha;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrDeviceCfgDevice(ACBrDevice: TACBrDevice; const pCfgDevice: TCfgDevice);
+begin
+  if not Assigned(pCfgDevice) then
+    raise Exception.Create('Configurações do Device não definidas!');
+
+  if not Assigned(ACBrDevice) then
+    raise Exception.Create('ACBrDevice não informado!');
+
+  if (Trim(pCfgDevice.Porta) = EmptyStr) then
+    raise Exception.Create('Porta não informado!');
+
+  ACBrDevice.Porta := pCfgDevice.Porta;
+  if (pCfgDevice.Baud < 50) or (pCfgDevice.Baud > 4000000) then begin
+    ACBrDevice.Baud := 9600;
+  end else begin
+    ACBrDevice.Baud := pCfgDevice.Baud;
+  end;
+  ACBrDevice.Parity    := TConvACBr.ConverteSerialParity(pCfgDevice.Parity);
+  ACBrDevice.Stop      := TConvACBr.ConverteSerialStop(pCfgDevice.Stop);
+  ACBrDevice.HandShake := TConvACBr.ConverteHandShake(pCfgDevice.HandShake);
+  ACBrDevice.SoftFlow  := pCfgDevice.SoftFlow;
+  ACBrDevice.HardFlow  := pCfgDevice.HardFlow;
+  if (pCfgDevice.Data > 0) then
+    ACBrDevice.Data := pCfgDevice.Data;
+  if (pCfgDevice.MaxBandwidth > 0) then
+    ACBrDevice.MaxBandwidth := pCfgDevice.MaxBandwidth;
+  if (pCfgDevice.SendBytesCount > 0) then
+    ACBrDevice.SendBytesCount := pCfgDevice.SendBytesCount;
+  if (pCfgDevice.SendBytesInterval > 0) then
+    ACBrDevice.SendBytesInterval := pCfgDevice.SendBytesInterval;
+  if (pCfgDevice.TimeOut > 0) then
+    ACBrDevice.TimeOut := pCfgDevice.TimeOut;
+  if (Trim(pCfgDevice.ArqLOG) <> EmptyStr) then begin
+    ACBrDevice.ArqLOG := pCfgDevice.ArqLOG;
+  end else begin
+    ACBrDevice.ArqLOG := GetDiretorioLogs + 'ACBrDevice.log';
+  end;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrMDFeCfgEmpresa(ACBrMDFe: TACBrMDFe; const pModelo: TEnumModeloDocumento; const pCfgEmpresa: TCfgEmpresa; const pIdCSRT: Integer; const pCSRT: string);
+var
+  bOk: Boolean;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+  if not Assigned(ACBrMDFe) then
+    raise Exception.Create('ACBrMDFe não informado!');
+
+  SetCertificado(ACBrMDFe.Configuracoes.Geral, ACBrMDFe.Configuracoes.Certificados, pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie);
+  ACBrMDFe.Configuracoes.WebServices.Ambiente := TConvACBr.ConverteAmbienteSEFAZ(TEnum.AmbienteSEFAZFromInt(pCfgEmpresa.WebServiceMDFe.Ambiente));
+  SetCSRT(ACBrMDFe.Configuracoes.RespTec, pIdCSRT, pCSRT);
+  SetWebServices(ACBrMDFe.Configuracoes.WebServices, pCfgEmpresa, pModelo);
+
+{$IFDEF WSLocal}
+  ACBrMDFe.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrMDFe.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrMDFe.Configuracoes.Geral.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    ACBrMDFe.Configuracoes.Geral.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  ACBrMDFe.Configuracoes.Arquivos.AdicionarLiteral := False;
+  ACBrMDFe.Configuracoes.Arquivos.Salvar           := True;
+  ACBrMDFe.Configuracoes.Arquivos.SepararPorCNPJ   := True;
+  ACBrMDFe.Configuracoes.Arquivos.SepararPorModelo := True;
+  ACBrMDFe.Configuracoes.Arquivos.EmissaoPathMDFe  := True; // Define se usa data de emissão ou data do sistema para definir o path
+  ACBrMDFe.Configuracoes.Arquivos.SepararPorAno    := True;
+  ACBrMDFe.Configuracoes.Arquivos.SepararPorMes    := True;
+  ACBrMDFe.Configuracoes.Arquivos.SepararPorDia    := True;
+
+{$IFDEF WSLocal}
+  ACBrMDFe.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := True;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrMDFe.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := True;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrMDFe.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := puMiddleware.Ini.SalvarApenasMDFeProcessadas;
+  end else begin
+    ACBrMDFe.Configuracoes.Arquivos.SalvarApenasMDFeProcessados := True;
+  end;
+{$ENDIF}
+{$ENDIF}
+  ACBrMDFe.Configuracoes.Arquivos.DownloadDFe.SepararPorNome := False;
+  // Utilizado Fixo o Ambiente de produção pois não é nesse ponto que é definido essa regra e sim na geração do XML
+  ACBrMDFe.Configuracoes.Arquivos.PathSchemas := TTotallACBrHelper.PathSchemasTACBrMDFeVersaoDF(ACBrMDFe.Configuracoes.WebServices.Ambiente, ACBrMDFe.Configuracoes.Geral.VersaoDF);
+  ACBrMDFe.Configuracoes.Arquivos.PathSalvar  := PathWithDelim(pCfgEmpresa.PathSalvar);
+  ACBrMDFe.Configuracoes.Arquivos.PathMDFe    := ACBrMDFe.Configuracoes.Arquivos.PathSalvar;
+  //  ACBrMDFe.Configuracoes.Arquivos.PathInu                  := ACBrMDFe.Configuracoes.Arquivos.PathSalvar;
+  ACBrMDFe.Configuracoes.Arquivos.PathEvento               := ACBrMDFe.Configuracoes.Arquivos.PathSalvar;
+  ACBrMDFe.Configuracoes.Arquivos.DownloadDFe.PathDownload := ACBrMDFe.Configuracoes.Arquivos.PathSalvar;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrCTeCfgEmpresa(ACBrCTe: TACBrCTe; const pModelo: TEnumModeloDocumento; const pCfgEmpresa: TCfgEmpresa;
+  const pIdCSRT: Integer; const pCSRT: string);
+var
+  bOk: Boolean;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+  if not Assigned(ACBrCTe) then
+    raise Exception.Create('ACBrCTe não informado!');
+
+  SetCertificado(ACBrCTe.Configuracoes.Geral, ACBrCTe.Configuracoes.Certificados, pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie);
+  SetCSRT(ACBrCTe.Configuracoes.RespTec, pIdCSRT, pCSRT);
+  SetWebServices(ACBrCTe.Configuracoes.WebServices, pCfgEmpresa, pModelo);
+
+  ACBrCTe.Configuracoes.WebServices.Ambiente := TConvACBr.ConverteAmbienteSEFAZ(TEnum.AmbienteSEFAZFromInt(pCfgEmpresa.WebServiceCTe.Ambiente));
+
+{$IFDEF WSLocal}
+  ACBrCTe.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrCTe.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrCTe.Configuracoes.Geral.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    ACBrCTe.Configuracoes.Geral.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  ACBrCTe.Configuracoes.Geral.ModeloDF := TConvACBr.ConverteModeloDocFiscalCTe(pModelo);
+
+  ACBrCTe.Configuracoes.Arquivos.AdicionarLiteral := False;
+  ACBrCTe.Configuracoes.Arquivos.Salvar           := True;
+  //  ACBrCTe.Configuracoes.Arquivos.SalvarEvento     := True;
+  ACBrCTe.Configuracoes.Arquivos.SepararPorCNPJ   := True;
+  ACBrCTe.Configuracoes.Arquivos.SepararPorModelo := True;
+  ACBrCTe.Configuracoes.Arquivos.EmissaoPathCTe   := True; // Define se usa data de emissão ou data do sistema para definir o path
+  ACBrCTe.Configuracoes.Arquivos.SepararPorAno    := True;
+  ACBrCTe.Configuracoes.Arquivos.SepararPorMes    := True;
+  ACBrCTe.Configuracoes.Arquivos.SepararPorDia    := True;
+
+{$IFDEF WSLocal}
+  ACBrCTe.Configuracoes.Arquivos.SalvarApenasCTeProcessados := True;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrCTe.Configuracoes.Arquivos.SalvarApenasCTeProcessados := True;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrCTe.Configuracoes.Arquivos.SalvarApenasCTeProcessados := puMiddleware.Ini.SalvarApenasCTeProcessadas;
+  end else begin
+    ACBrCTe.Configuracoes.Arquivos.SalvarApenasCTeProcessados := True;
+  end;
+{$ENDIF}
+{$ENDIF}
+  //  ACBrCTe.Configuracoes.Geral.CamposFatObrigatorios := Self.GetCamposFatObrigatorios;
+  //  ACBrCTe.Configuracoes.Geral.VersaoQRCode          := StrToVersaoQrCode(bOk, Self.GetVersaoQRCode);
+  //  if (Self.GetDataNT2018_005_vICMSSubstituto > 0) and (Trunc(Now()) >= Self.GetDataNT2018_005_vICMSSubstituto) then begin
+  //    ACBrNFe.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtSempre;
+  //  end else begin
+  //    ACBrNFe.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtNunca;
+  //  end;
+
+  //  if (GetDataNT2018_005_CSRT > 0) and (Trunc(Now()) >= GetDataNT2018_005_CSRT) then begin
+  //    bGerainfRespTec := True;
+  //  end else begin
+  //    bGerainfRespTec := False;
+  //  end;
+
+  //  bUsaNT2018_005 := (ACBrNFe.Configuracoes.Geral.ForcarGerarTagRejeicao938 = fgtSempre) or bGerainfRespTec;
+
+  ACBrCTe.Configuracoes.Arquivos.DownloadDFe.SepararPorNome := False;
+  // Utilizado Fixo o Ambiente de produção pois não é nesse ponto que é definido essa regra e sim na geração do XML
+  ACBrCTe.Configuracoes.Arquivos.PathSchemas              := TTotallACBrHelper.PathSchemasTACBrCTeVersaoDF(ACBrCTe.Configuracoes.WebServices.Ambiente, ACBrCTe.Configuracoes.Geral.VersaoDF);
+  ACBrCTe.Configuracoes.Arquivos.PathSalvar               := PathWithDelim(pCfgEmpresa.PathSalvar);
+  ACBrCTe.Configuracoes.Arquivos.PathCTe                  := ACBrCTe.Configuracoes.Arquivos.PathSalvar;
+  ACBrCTe.Configuracoes.Arquivos.PathInu                  := ACBrCTe.Configuracoes.Arquivos.PathSalvar;
+  ACBrCTe.Configuracoes.Arquivos.PathEvento               := ACBrCTe.Configuracoes.Arquivos.PathSalvar;
+  ACBrCTe.Configuracoes.Arquivos.DownloadDFe.PathDownload := ACBrCTe.Configuracoes.Arquivos.PathSalvar;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrNFeCfgEmpresa(ACBrNFe: TACBrNFe; const pModelo: TEnumModeloDocumento; const pCfgEmpresa: TCfgEmpresa;
+  const pIdCSRT: Integer; const pCSRT: string);
+var
+  bOk, bUsaNT2018_005, bGerainfRespTec, bUsaNT2020_006: Boolean;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+  if not Assigned(ACBrNFe) then
+    raise Exception.Create('ACBrNFe não informado!');
+
+  SetCertificado(ACBrNFe.Configuracoes.Geral, ACBrNFe.Configuracoes.Certificados, pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie);
+  SetCSC(ACBrNFe.Configuracoes.Geral, pCfgEmpresa.Token, pCfgEmpresa.IdToken);
+  SetWebServices(ACBrNFe.Configuracoes.WebServices, pCfgEmpresa, pModelo);
+  SetCSRT(ACBrNFe.Configuracoes.RespTec, pIdCSRT, pCSRT);
+
+{$IFDEF WSLocal}
+  ACBrNFe.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrNFe.Configuracoes.Geral.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrNFe.Configuracoes.Geral.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    ACBrNFe.Configuracoes.Geral.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  ACBrNFe.Configuracoes.Geral.ModeloDF      := TConvACBr.ConverteModeloDocFiscal(pModelo);
+  ACBrNFe.Configuracoes.Geral.VersaoQRCode  := StrToVersaoQrCode(bOk, Self.GetVersaoQRCode(pCfgEmpresa.WebService.UF));
+
+  ACBrNFe.Configuracoes.Arquivos.AdicionarLiteral := False;
+  ACBrNFe.Configuracoes.Arquivos.Salvar           := True;
+  ACBrNFe.Configuracoes.Arquivos.SalvarEvento     := True;
+  ACBrNFe.Configuracoes.Arquivos.SepararPorCNPJ   := True;
+  ACBrNFe.Configuracoes.Arquivos.SepararPorModelo := True;
+  ACBrNFe.Configuracoes.Arquivos.EmissaoPathNFe   := True; // Define se usa data de emissão ou data do sistema para definir o path
+  ACBrNFe.Configuracoes.Arquivos.SepararPorAno    := True;
+  ACBrNFe.Configuracoes.Arquivos.SepararPorMes    := True;
+  ACBrNFe.Configuracoes.Arquivos.SepararPorDia    := True;
+
+{$IFDEF WSLocal}
+  ACBrNFe.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := True;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrNFe.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := True;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrNFe.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := puMiddleware.Ini.SalvarApenasNFeProcessadas;
+  end else begin
+    ACBrNFe.Configuracoes.Arquivos.SalvarApenasNFeProcessadas := True;
+  end;
+{$ENDIF}
+{$ENDIF}
+  ACBrNFe.Configuracoes.Geral.CamposFatObrigatorios := Self.GetCamposFatObrigatorios;
+  ACBrNFe.Configuracoes.Geral.VersaoQRCode          := StrToVersaoQrCode(bOk, Self.GetVersaoQRCode);
+  if (Self.GetDataNT2018_005_vICMSSubstituto > 0) and (Trunc(Now()) >= Self.GetDataNT2018_005_vICMSSubstituto) then begin
+    ACBrNFe.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtSempre;
+  end else begin
+    ACBrNFe.Configuracoes.Geral.ForcarGerarTagRejeicao938 := fgtNunca;
+  end;
+
+  if (GetDataNT2018_005_CSRT > 0) and (Trunc(Now()) >= GetDataNT2018_005_CSRT) then begin
+    bGerainfRespTec := True;
+  end else begin
+    bGerainfRespTec := False;
+  end;
+
+  bUsaNT2018_005 := (ACBrNFe.Configuracoes.Geral.ForcarGerarTagRejeicao938 = fgtSempre) or bGerainfRespTec;
+  bUsaNT2020_006 := (GetDataNT2020_006 > 0) and (Trunc(Now()) >= GetDataNT2020_006);
+
+  ACBrNFe.Configuracoes.Arquivos.DownloadDFe.SepararPorNome := False;
+  // Utilizado Fixo o Ambiente de produção pois não é nesse ponto que é definido essa regra e sim na geração do XML
+
+  ACBrNFe.Configuracoes.Arquivos.PathSchemas := TTotallACBrHelper.PathSchemasTACBrNFeVersaoDF(ACBrNFe.Configuracoes.WebServices.Ambiente,
+    TEnum.ModeloDocumentoFromCodigo(ModeloDFToStr(AcbrNFe.Configuracoes.Geral.ModeloDF)), ACBrNFe.Configuracoes.Geral.VersaoDF,
+    bUsaNT2018_005, bUsaNT2020_006);
+  ACBrNFe.Configuracoes.Arquivos.PathSalvar               := PathWithDelim(pCfgEmpresa.PathSalvar);
+  ACBrNFe.Configuracoes.Arquivos.PathNFe                  := ACBrNFe.Configuracoes.Arquivos.PathSalvar;
+  ACBrNFe.Configuracoes.Arquivos.PathInu                  := ACBrNFe.Configuracoes.Arquivos.PathSalvar;
+  ACBrNFe.Configuracoes.Arquivos.PathEvento               := ACBrNFe.Configuracoes.Arquivos.PathSalvar;
+  ACBrNFe.Configuracoes.Arquivos.DownloadDFe.PathDownload := ACBrNFe.Configuracoes.Arquivos.PathSalvar;
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrSATCfgEmpresa(ACBrSAT: TACBrSAT; const pCfgEmpresa: TCfgEmpresa);
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  ACBrSAT.Config.emit_CNPJ := pCfgEmpresa.CNPJ;
+
+  ACBrSAT.ConfigArquivos.SalvarCFe            := True;
+  ACBrSAT.ConfigArquivos.SalvarCFeCanc        := True;
+  ACBrSAT.ConfigArquivos.SalvarEnvio          := True;
+  ACBrSAT.ConfigArquivos.SepararPorCNPJ       := True;
+  ACBrSAT.ConfigArquivos.SepararPorModelo     := True;
+  ACBrSAT.ConfigArquivos.SepararPorAno        := True;
+  ACBrSAT.ConfigArquivos.SepararPorMes        := True;
+  ACBrSAT.ConfigArquivos.SepararPorDia        := True;
+  ACBrSAT.ConfigArquivos.PastaEnvio           := PathWithDelim(pCfgEmpresa.PathSalvar);
+  ACBrSAT.ConfigArquivos.PastaCFeVenda        := PathWithDelim(pCfgEmpresa.PathSalvar);
+  ACBrSAT.ConfigArquivos.PastaCFeCancelamento := PathWithDelim(pCfgEmpresa.PathSalvar);
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrSATCfgSAT(ACBrSAT: TACBrSAT; const pCfgSAT: TCfgSAT);
+begin
+  if not Assigned(pCfgSAT) then
+    raise Exception.Create('Configurações do SAT não definidas!');
+
+  ACBrSAT.Modelo  := TConvACBr.ConverteAcessoDLL(pCfgSAT.AcessoDLL);
+  ACBrSAT.NomeDLL := pCfgSAT.LocalDLL;
+
+  { TODO -oTotali -cControle : Parâmetros utilizados para garantir que a sessão processada é a mesma enviada ao Equipamento. }
+  ACBrSAT.ValidarNumeroSessaoResposta   := True;
+  ACBrSAT.NumeroTentativasValidarSessao := MAX_RETORNOS_OCORRENCIAS;
+  { TODO -oTotali -cControle : Parâmetros utilizados para garantir que a sessão processada é a mesma enviada ao Equipamento. }
+
+  if (pCfgSAT.TipoSAT = tsEmuladorOffline)
+{$IFNDEF WSLocal}{$IFNDEF WSServiceMonitor} or (Assigned(puMiddleware.Ini) and puMiddleware.Ini.VersaoBeta) {$ENDIF}{$ENDIF} then begin
+    ACBrSAT.Config.ide_tpAmb := TConvACBr.ConverteAmbienteSEFAZ(TEnumAmbienteSEFAZ.amHomologacao);
+  end else begin
+    ACBrSAT.Config.ide_tpAmb := TConvACBr.ConverteAmbienteSEFAZ(TEnumAmbienteSEFAZ.amProducao);
+  end;
+  ACBrSAT.Config.PaginaDeCodigo        := pCfgSAT.PaginaCodigoUTF8;
+  ACBrSAT.Config.EhUTF8                := pCfgSAT.UsaUTF8;
+  ACBrSAT.Config.infCFe_versaoDadosEnt := ifThen(pCfgSAT.VersaoLayout < VERSAO_MINIMA_LAYOUT_SAT, VERSAO_MINIMA_LAYOUT_SAT, pCfgSAT.VersaoLayout);
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrSATCfgSATCfgEmpresa(ACBrSAT: TACBrSAT; const pCfgSAT: TCfgSAT;
+  const pCfgEmpresa: TCfgEmpresa);
+begin
+  if not Assigned(pCfgSAT) then
+    raise Exception.Create('Configurações do SAT não definidas!');
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  ConfiguracaoTACBrSATCfgSAT(ACBrSAT, pCfgSAT);
+  ConfiguracaoTACBrSATCfgEmpresa(ACBrSAT, pCfgEmpresa);
+end;
+
+class procedure TTotallACBrHelper.ConfiguracaoTACBrSATWSCfgEmpresa(ACBrSATWS: TACBrSATWS; const pCfgEmpresa: TCfgEmpresa);
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  ACBrSATWS.WebServices.ConsultarSATWS.versaoDados    := ReplaceStr(FormatFloat('0.00', VERSAO_MINIMA_LAYOUT_SAT), ',', '.');
+  ACBrSATWS.WebServices.ConsultarSATWS.chaveSeguranca := pCfgEmpresa.WebServiceSAT.ChaveDeSeguranca;
+  ACBrSATWS.Configuracoes.WebServices.UF              := pCfgEmpresa.WebServiceSAT.UF;
+
+{$IFDEF WSLocal}
+  ACBrSATWS.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrSATWS.Configuracoes.WebServices.Salvar := False;
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    ACBrSATWS.Configuracoes.WebServices.Salvar := puMiddleware.Ini.SalvarArquivosEnvioResposta;
+  end else begin
+    ACBrSATWS.Configuracoes.WebServices.Salvar := False;
+  end;
+{$ENDIF}
+{$ENDIF}
+  // Utilizado Fixo o Ambiente de produção pois não é nesse ponto que é definido essa regra e sim na geração do XML
+  ACBrSATWS.Configuracoes.Arquivos.PathSalvar := GetDiretorioLogs();
+
+  //ACBrSATWS.Configuracoes.Geral.SSLType       := Self.GetSSLType;
+  ACBrSATWS.Configuracoes.Geral.SSLLib := libOpenSSL; //Self.GetSSLLib;
+  //ACBrSATWS.Configuracoes.Geral.SSLCryptLib   := Self.GetSSLCryptLib;
+  //ACBrSATWS.Configuracoes.Geral.SSLHttpLib    := Self.GetSSLHttpLib;
+  //ACBrSATWS.Configuracoes.Geral.SSLXmlSignLib := Self.GetSSLXmlSignLib;
+
+  // Proxy
+{$IFDEF WSLocal}
+  ACBrSATWS.Configuracoes.WebServices.ProxyHost := EmptyStr;
+  ACBrSATWS.Configuracoes.WebServices.ProxyPort := EmptyStr;
+  ACBrSATWS.Configuracoes.WebServices.ProxyUser := EmptyStr;
+  ACBrSATWS.Configuracoes.WebServices.ProxyPass := EmptyStr;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  ACBrSATWS.Configuracoes.WebServices.ProxyHost := EmptyStr;
+  ACBrSATWS.Configuracoes.WebServices.ProxyPort := EmptyStr;
+  ACBrSATWS.Configuracoes.WebServices.ProxyUser := EmptyStr;
+  ACBrSATWS.Configuracoes.WebServices.ProxyPass := EmptyStr;
+{$ELSE}
+  ACBrSATWS.Configuracoes.WebServices.ProxyHost := puMiddleware.Config.Proxy.Host;
+  ACBrSATWS.Configuracoes.WebServices.ProxyPort := IntToStr(puMiddleware.Config.Proxy.Porta);
+  ACBrSATWS.Configuracoes.WebServices.ProxyUser := puMiddleware.Config.Proxy.Usuario;
+  ACBrSATWS.Configuracoes.WebServices.ProxyPass := puMiddleware.Config.Proxy.Senha;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.CreateTACBrNFeCfgEmpresa(const pModelo: TEnumModeloDocumento; const pCfgEmpresa: TCfgEmpresa;
+  const pIdCSRT: Integer; const pCSRT: string): TACBrNFe;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  Result := ACBrNFeNew(pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie,
+    pCfgEmpresa.Token, pCfgEmpresa.IdToken, pIdCSRT, pCSRT);
+
+  // Mensageria DFe
+  ConfiguracaoTACBrNFeCfgEmpresa(Result, pModelo, pCfgEmpresa, pIdCSRT, pCSRT);
+end;
+
+class function TTotallACBrHelper.CreateTACBrCTeCfgEmpresa(const pModelo: TEnumModeloDocumento; const pCfgEmpresa: TCfgEmpresa;
+  const pIdCSRT: Integer; const pCSRT: string): TACBrCTe;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  Result := ACBrCTeNew(pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie,
+    pCfgEmpresa.Token, pCfgEmpresa.IdToken, pIdCSRT, pCSRT);
+
+  // Mensageria DFe
+  ConfiguracaoTACBrCTeCfgEmpresa(Result, pModelo, pCfgEmpresa, pIdCSRT, pCSRT);
+end;
+
+class function TTotallACBrHelper.CreateTACBrMDFeCfgEmpresa(const pModelo: TEnumModeloDocumento; const pCfgEmpresa: TCfgEmpresa;
+  const pIdCSRT: Integer; const pCSRT: string): TACBrMDFe;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  Result := ACBrMDFeNew(pCfgEmpresa.Certificado.Caminho, pCfgEmpresa.Certificado.Senha, pCfgEmpresa.Certificado.NumSerie,
+    pCfgEmpresa.Token, pCfgEmpresa.IdToken, pIdCSRT, pCSRT);
+
+  // Mensageria DFe
+  ConfiguracaoTACBrMDFeCfgEmpresa(Result, pModelo, pCfgEmpresa, pIdCSRT, pCSRT);
+end;
+
+class function TTotallACBrHelper.CreateTACBrNFeParans(const pModelo: TEnumModeloDocumento;
+  const pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado, pCSC, pIdCSC: string;
+  const pIdCSRT: Integer; const pCSRT: string): TACBrNFe;
+var
+  oCfgEmpresa: TCfgEmpresa;
+begin
+  //Configura Objeto CfgEmpresa
+  oCfgEmpresa                      := TCfgEmpresa.Create;
+  oCfgEmpresa.WebService.UF        := TOTALLSISTEMAS_ESTADO_NFCE;
+  oCfgEmpresa.Certificado.Caminho  := pPathCertificado;
+  oCfgEmpresa.Certificado.Senha    := pSenhaCertificado;
+  oCfgEmpresa.Certificado.NumSerie := pNumeroSerieCertificado;
+  oCfgEmpresa.Token                := pCSC;
+  oCfgEmpresa.IdToken              := pIdCSC;
+  oCfgEmpresa.PathSalvar           := PathDefaultArquivos;
+
+  //Realiza Criação do Objeto TACBrNFe
+  Result := CreateTACBrNFeCfgEmpresa(pModelo, oCfgEmpresa, pIdCSRT, pCSRT);
+
+  oCfgEmpresa.Free;
+end;
+
+class function TTotallACBrHelper.CreateTACBrNFSeXCfgEmpresa(const pModelo: TEnumModeloDocumento;
+  const pCfgEmpresa: TCfgEmpresa; const pIdCSRT: Integer; const pCSRT: string): TACBrNFSeX;
+var
+  oCfgProxy: TCfgProxy;
+begin
+  if not Assigned(pCfgEmpresa) then
+    raise Exception.Create('Configurações da empresa não definidas!');
+
+  // Proxy
+  oCfgProxy := TCfgProxy.Create;
+{$IFDEF WSLocal}
+  oCfgProxy.Host    := EmptyStr;
+  oCfgProxy.Porta   := 0;
+  oCfgProxy.Usuario := EmptyStr;
+  oCfgProxy.Senha   := EmptyStr;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+  oCfgProxy.Host    := EmptyStr;
+  oCfgProxy.Porta   := 0;
+  oCfgProxy.Usuario := EmptyStr;
+  oCfgProxy.Senha   := EmptyStr;
+{$ELSE}
+  oCfgProxy.Host    := puMiddleware.Config.Proxy.Host;
+  oCfgProxy.Porta   := puMiddleware.Config.Proxy.Porta;
+  oCfgProxy.Usuario := puMiddleware.Config.Proxy.Usuario;
+  oCfgProxy.Senha   := puMiddleware.Config.Proxy.Senha;
+{$ENDIF}
+{$ENDIF}
+  Result                                   := ACBrNFSeXNew(nil, pCfgEmpresa, oCfgProxy);
+  Result.Configuracoes.WebServices.TimeOut := 60000;
+
+  // Mensageria DFe
+  ConfiguracaoTACBrNFSeXCfgEmpresa(Result, pCfgEmpresa);
+end;
+
+class function TTotallACBrHelper.CreateTACBrNFSeXPadrao(const pModelo: TEnumModeloDocumento): TACBrNFSeX;
+begin
+  Result := ACBrNFSeXNew(nil, nil, nil, False);
+end;
+
+class function TTotallACBrHelper.CreateTACBrNFSeXParans(const pModelo: TEnumModeloDocumento;
+  const pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado, pCSC, pIdCSC: string;
+  const pIdCSRT: Integer; const pCSRT: string): TACBrNFSeX;
+var
+  oCfgEmpresa: TCfgEmpresa;
+begin
+  //Configura Objeto CfgEmpresa
+  oCfgEmpresa                      := TCfgEmpresa.Create;
+  oCfgEmpresa.WebService.UF        := TOTALLSISTEMAS_ESTADO_NFCE;
+  oCfgEmpresa.Certificado.Caminho  := pPathCertificado;
+  oCfgEmpresa.Certificado.Senha    := pSenhaCertificado;
+  oCfgEmpresa.Certificado.NumSerie := pNumeroSerieCertificado;
+  oCfgEmpresa.Token                := pCSC;
+  oCfgEmpresa.IdToken              := pIdCSC;
+  oCfgEmpresa.PathSalvar           := PathDefaultArquivos;
+
+  //Realiza Criação do Objeto TACBrNFSeX
+  Result := CreateTACBrNFSeXCfgEmpresa(pModelo, oCfgEmpresa, pIdCSRT, pCSRT);
+
+  oCfgEmpresa.Free;
+end;
+
+class function TTotallACBrHelper.CreateTACBrCTeParans(const pModelo: TEnumModeloDocumento;
+  const pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado, pCSC, pIdCSC: string;
+  const pIdCSRT: Integer; const pCSRT: string): TACBrCTe;
+var
+  oCfgEmpresa: TCfgEmpresa;
+begin
+  //Configura Objeto CfgEmpresa
+  oCfgEmpresa                      := TCfgEmpresa.Create;
+  oCfgEmpresa.WebService.UF        := TOTALLSISTEMAS_ESTADO_NFCE;
+  oCfgEmpresa.Certificado.Caminho  := pPathCertificado;
+  oCfgEmpresa.Certificado.Senha    := pSenhaCertificado;
+  oCfgEmpresa.Certificado.NumSerie := pNumeroSerieCertificado;
+  oCfgEmpresa.Token                := pCSC;
+  oCfgEmpresa.IdToken              := pIdCSC;
+  oCfgEmpresa.PathSalvar           := PathDefaultArquivos;
+
+  //Realiza Criação do Objeto TACBrCTe
+  Result := CreateTACBrCTeCfgEmpresa(pModelo, oCfgEmpresa, pIdCSRT, pCSRT);
+
+  oCfgEmpresa.Free;
+end;
+
+class function TTotallACBrHelper.CreateTACBrMDFeParans(const pModelo: TEnumModeloDocumento;
+  const pPathCertificado, pSenhaCertificado, pNumeroSerieCertificado, pCSC, pIdCSC: string;
+  const pIdCSRT: Integer; const pCSRT: string): TACBrMDFe;
+var
+  oCfgEmpresa: TCfgEmpresa;
+begin
+  //Configura Objeto CfgEmpresa
+  oCfgEmpresa                      := TCfgEmpresa.Create;
+  oCfgEmpresa.WebService.UF        := TOTALLSISTEMAS_ESTADO_NFCE;
+  oCfgEmpresa.Certificado.Caminho  := pPathCertificado;
+  oCfgEmpresa.Certificado.Senha    := pSenhaCertificado;
+  oCfgEmpresa.Certificado.NumSerie := pNumeroSerieCertificado;
+  oCfgEmpresa.PathSalvar           := PathDefaultArquivos;
+
+  //Realiza Criação do Objeto TACBrMDFe
+  Result := CreateTACBrMDFeCfgEmpresa(pModelo, oCfgEmpresa, pIdCSRT, pCSRT);
+
+  oCfgEmpresa.Free;
+end;
+
+class procedure TTotallACBrHelper.CriaDiretorios;
+begin
+  ForceDirectories(PathDefaultArquivos);
+  // Arquivos Boletos
+  ForceDirectories(GetPathCompleto(DIRETORIO_BOLETO));
+  ForceDirectories(GetPathCompleto(DIRETORIO_BOLETO_REMESSA));
+  ForceDirectories(GetPathCompleto(DIRETORIO_BOLETO_RETORNO));
+  ForceDirectories(GetDirBoletoPDF);
+
+  // Arquivos Logs
+  ForceDirectories(GetPathCompleto(DIRETORIO_LOGS));
+
+  //Diretórios Middleware
+  ForceDirectories(GetPathCompleto(DIRETORIO_IMAGENS));
+  ForceDirectories(GetPathCompleto(DIRETORIO_BOLETO_LOGO));
+  ForceDirectories(GetPathCompleto(DIRETORIO_BOLETO_LOGO_COLORIDO));
+  ForceDirectories(GetPathCompleto(DIRETORIO_BOLETO_LOGO_PRETOBRANCO));
+  ForceDirectories(GetPathCompleto(DIRETORIO_REPORT));
+  ForceDirectories(GetPathCompleto(DIRETORIO_REPORT_DAV));
+end;
+
+class function TTotallACBrHelper.GetDataNT2018_005_CSRT: TDate;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni := nil;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := oIni.ReadDate('Sefaz', 'nt_2018_005_csrt', 0);
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+   Result := Now();
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.DataNT2018_005_CSRT;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := oIni.ReadDate('Sefaz', 'nt_2018_005_csrt', 0);
+      if not FileExists(cArqIni) then begin
+        oIni.WriteDate('Sefaz', 'nt_2018_005_csrt', Result);
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.DFeSSLNew(const pCfgEmpresa: TCfgEmpresa): TDFeSSL;
+begin
+  Result := TDFeSSL.Create;
+
+  Self.ConfiguracaoDFeSSL(Result, pCfgEmpresa);
+end;
+
+class function TTotallACBrHelper.GetDataNT2018_005_vICMSSubstituto: TDate;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni := nil;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := oIni.ReadDate('Sefaz', 'nt_2018_005_vicmssubstituto', 0);
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+   Result := Now();
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.DataNT2018_005_vICMSSubstituto;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := oIni.ReadDate('Sefaz', 'nt_2018_005_vicmssubstituto', 0);
+      if not FileExists(cArqIni) then begin
+        oIni.WriteDate('Sefaz', 'nt_2018_005_vicmssubstituto', Result);
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetDataNT2020_006: TDate;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni := nil;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := oIni.ReadDate('Sefaz', 'nt_2020_006', 0);
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+   Result := Now();
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.DataNT2020_006;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := oIni.ReadDate('Sefaz', 'nt_2020_006', 0);
+      if not FileExists(cArqIni) then begin
+        oIni.WriteDate('Sefaz', 'nt_2020_006', Result);
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetDirBoletoPDF: string;
+var
+  cDiretorio: string;
+begin
+  //Result := IncludeTrailingPathDelimiter(PathDefaultArquivos + DIRETORIO_BOLETO_PDF);
+  cDiretorio := EmptyStr;
+  cDiretorio := IncludeTrailingPathDelimiter(TTotallACBrHelper.PathDefaultArquivos + DIRETORIO_BOLETO_PDF);
+
+  Result := IncludePathDate(cDiretorio);
+
+  // Realiza Criação do Diretório
+  ForceDirectories(IncludeTrailingPathDelimiter(TTotallACBrHelper.PathDefaultArquivos));
+  ForceDirectories(IncludeTrailingPathDelimiter(TTotallACBrHelper.PathDefaultArquivos + DIRETORIO_BOLETO));
+  ForceDirectories(IncludeTrailingPathDelimiter(TTotallACBrHelper.PathDefaultArquivos + DIRETORIO_BOLETO_PDF));
+  ForceDirectories(Result);
+end;
+
+class function TTotallACBrHelper.GetEmpresaResponsavel: TEnumEmpresaResponsavel;
+begin
+  Result := TEnum.EmpresaResponsavelFromStr(GetSistema());
+end;
+
+class function TTotallACBrHelper.GetFileNameReportNFCe(pUsaFormatoA4: Boolean): string;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := EmptyStr;
+
+  try
+{$IFDEF WSLocal}
+    cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+    oIni    := TIniFile.Create(cArqIni);
+    Result  := GetPathCompleto(DIRETORIO_REPORT) + oIni.ReadString('Sefaz', 'FileNameReportNFCe', EmptyStr);
+    if (Trim(Result) = EmptyStr) or
+        (not FileExists(Result)) then begin
+      Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NFCe_DANFE_A4, FileNameReport_NFCe_DANFE_Bobina);
+    end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+   Result := '';
+{$ELSE}
+    if Assigned(puMiddleware.Ini) then begin
+      Result := GetPathCompleto(DIRETORIO_REPORT) + puMiddleware.Ini.FileNameReportNFCe;
+      if (Trim(Result) = EmptyStr) or
+          (not FileExists(Result)) then begin
+        if (UpperCase(puMiddleware.Ini.Sistema) = 'EME4') then begin
+          Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NFCe_DANFE_A4, FileNameReport_NFCe_DANFE_Bobina_EME4);
+        end else begin
+          Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NFCe_DANFE_A4, FileNameReport_NFCe_DANFE_Bobina);
+        end;
+      end;
+    end else begin
+      cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+      oIni    := TIniFile.Create(cArqIni);
+      Result  := GetPathCompleto(DIRETORIO_REPORT) + oIni.ReadString('Sefaz', 'FileNameReportNFCe', EmptyStr);
+      if (Trim(Result) = EmptyStr) or
+          (not FileExists(Result)) then begin
+        Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NFCe_DANFE_A4, FileNameReport_NFCe_DANFE_Bobina);
+      end;
+    end;
+{$ENDIF}
+{$ENDIF}
+    if (Trim(Result) = EmptyStr) then begin
+      Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NFCe_DANFE_A4, FileNameReport_NFCe_DANFE_Bobina);
+    end;
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+end;
+
+class function TTotallACBrHelper.GetFileNameReportNM(pUsaFormatoA4: Boolean): string;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := EmptyStr;
+
+  try
+{$IFDEF WSLocal}
+    cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+    oIni    := TIniFile.Create(cArqIni);
+    Result  := GetPathCompleto(DIRETORIO_REPORT) + oIni.ReadString('Sefaz', 'FileNameReportNM', EmptyStr);
+    if (Trim(Result) = EmptyStr) or
+        (not FileExists(Result)) then begin
+      Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NM_DANFE_A4, FileNameReport_NM_DANFE_Bobina);
+    end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+   Result := '';
+{$ELSE}
+    if Assigned(puMiddleware.Ini) then begin
+      Result := GetPathCompleto(DIRETORIO_REPORT) + puMiddleware.Ini.FileNameReportNM;
+      if (Trim(Result) = EmptyStr) or
+          (not FileExists(Result)) then begin
+        if (UpperCase(puMiddleware.Ini.Sistema) = 'EME4') then begin
+          Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NM_DANFE_A4, FileNameReport_NM_DANFE_Bobina_EME4);
+        end else begin
+          Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NM_DANFE_A4, FileNameReport_NM_DANFE_Bobina);
+        end;
+      end;
+    end else begin
+      cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+      oIni    := TIniFile.Create(cArqIni);
+      Result  := GetPathCompleto(DIRETORIO_REPORT) + oIni.ReadString('Sefaz', 'FileNameReportNM', EmptyStr);
+      if (Trim(Result) = EmptyStr) or
+          (not FileExists(Result)) then begin
+        Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NM_DANFE_A4, FileNameReport_NM_DANFE_Bobina);
+      end;
+    end;
+{$ENDIF}
+{$ENDIF}
+    if (Trim(Result) = EmptyStr) then begin
+      Result := GetPathCompleto(DIRETORIO_REPORT) + IfThen(pUsaFormatoA4, FileNameReport_NM_DANFE_A4, FileNameReport_NM_DANFE_Bobina);
+    end;
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+end;
+
+class function TTotallACBrHelper.GetFileReport(pLayoutBoleto: TEnumLayoutBoleto; pArquivoPersonalizado: string;
+  pCodigoBanco: string): string;
+var
+  cNomeArquivoReportBoleto: string;
+  cNomeArquivoReportPersonalizadoBanco: string;
+begin
+  Result := '';
+
+  cNomeArquivoReportBoleto := FileNameReport_Boleto_Padrao;
+  case pLayoutBoleto of
+    TEnumLayoutBoleto_Padrao: cNomeArquivoReportBoleto := FileNameReport_Boleto_Padrao;
+    TEnumLayoutBoleto_Carne: cNomeArquivoReportBoleto  := FileNameReport_Boleto_Carne;
+    TEnumLayoutBoleto_Fatura: cNomeArquivoReportBoleto := FileNameReport_Boleto_Fatura;
+    TEnumLayoutBoleto_PadraoEntrega: cNomeArquivoReportBoleto := FileNameReport_Boleto_PadraoEntrega;
+    TEnumLayoutBoleto_Outro: cNomeArquivoReportBoleto := pArquivoPersonalizado;
+  end;
+
+  if not(FileExists(GetPathCompleto(DIRETORIO_REPORT) + cNomeArquivoReportBoleto)) then
+    cNomeArquivoReportBoleto := FileNameReport_Boleto_Padrao;
+
+  // Verifica se existe algum modelo personalizado para o banco (Ex: Boleto_001.fr3, onde 001 é o Código do Banco do Brasil)
+  if pLayoutBoleto <> TEnumLayoutBoleto_Outro then begin
+    cNomeArquivoReportPersonalizadoBanco := ChangeFileExt(ExtractFileName(cNomeArquivoReportBoleto), '') + '_' + LPad(pCodigoBanco, '0', 3) + '.fr3';
+    if FileExists(GetPathCompleto(DIRETORIO_REPORT) + cNomeArquivoReportPersonalizadoBanco) then begin
+      cNomeArquivoReportBoleto := cNomeArquivoReportPersonalizadoBanco;
+    end;
+  end;
+
+  Result := GetPathCompleto(DIRETORIO_REPORT) + cNomeArquivoReportBoleto;
+end;
+
+class function TTotallACBrHelper.GetImprimeEmUmaLinha: Boolean;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := True;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+   cArqIni := GetCurrentDir() + '\' + GetAppName + '.ini';
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    cArqIni := GetCurrentDir() + '\Middleware.ini';
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+  end;
+{$ENDIF}
+{$ENDIF}
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := oIni.ReadBool('Impressao', 'ImprimeEmUmaLinha', True);
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+end;
+
+class function TTotallACBrHelper.PathDefaultArquivos: string;
+begin
+  Result := GetPathAtual() + '\Arquivos\';
+end;
+
+class function TTotallACBrHelper.PathSchemasTACBrCTeVersaoDF(const pAmbiente: TpcnTipoAmbiente; const pVersao: TVersaoCTe): string;
+var
+  sPathSchemas, sPathTemp: string;
+begin
+  try
+    // Monta para utilização do Schemas conforme o Modelo do Documento
+    sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(mdCTe) + '\ve' + OnlyNumber(VersaoCTeToStr(pVersao));
+
+    // Caso não encontre o diretório busca por outras referências
+    sPathTemp := GetPathCompleto(sPathSchemas);
+    if not DirectoryExists(sPathTemp) then begin
+      sPathSchemas := 'Schemas\ve' + OnlyNumber(VersaoCTeToStr(pVersao));
+      sPathTemp    := GetPathCompleto(sPathSchemas);
+      if not DirectoryExists(sPathTemp) then begin
+        sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(mdCTe);
+      end;
+    end;
+
+    // Define path de homologação apenas quando diretório existir
+    if (pAmbiente = taHomologacao) then begin
+      sPathTemp := GetPathCompleto(sPathSchemas + '_homologacao');
+      if DirectoryExists(sPathTemp) then begin
+        sPathSchemas := sPathSchemas + '_homologacao';
+      end;
+    end;
+    { TODO: 1 -oTotall - Pedro E. Braga -cCUST: Customização; Tratado para utilizar Schemas especificos em algumas regras como a necessidade da "NT_ - XXXX_XXX" ou "Homologação" }
+  finally
+    Result := GetPathCompleto(sPathSchemas);
+  end;
+end;
+
+class function TTotallACBrHelper.PathSchemasTACBrMDFeVersaoDF(const pAmbiente: TpcnTipoAmbiente; const pVersao: TVersaoMDFe): string;
+var
+  sPathSchemas, sPathTemp: string;
+begin
+  try
+    // Monta para utilização do Schemas conforme o Modelo do Documento
+    sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(mdMDFe) + '\ve' + OnlyNumber(VersaoMDFeToStr(pVersao));
+
+    // Caso não encontre o diretório busca por outras referências
+    sPathTemp := GetPathCompleto(sPathSchemas);
+    if not DirectoryExists(sPathTemp) then begin
+      sPathSchemas := 'Schemas\ve' + OnlyNumber(VersaoMDFeToStr(pVersao));
+      sPathTemp    := GetPathCompleto(sPathSchemas);
+      if not DirectoryExists(sPathTemp) then begin
+        sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(mdMDFe);
+      end;
+    end;
+
+    // Define path de homologação apenas quando diretório existir
+    if (pAmbiente = taHomologacao) then begin
+      sPathTemp := GetPathCompleto(sPathSchemas + '_homologacao');
+      if DirectoryExists(sPathTemp) then begin
+        sPathSchemas := sPathSchemas + '_homologacao';
+      end;
+    end;
+    { TODO: 1 -oTotall - Pedro E. Braga -cCUST: Customização; Tratado para utilizar Schemas especificos em algumas regras como a necessidade da "NT_ - XXXX_XXX" ou "Homologação" }
+  finally
+    Result := GetPathCompleto(sPathSchemas);
+  end;
+end;
+
+class function TTotallACBrHelper.PathSchemasTACBrNFeVersaoDF(const pAmbiente: TpcnTipoAmbiente; const pModeloDF: TEnumModeloDocumento; const pVersao: TpcnVersaoDF;
+  const pUsaNT_2018_005: Boolean; const pUsaNT_2020_006: Boolean): string;
+var
+  sPathSchemas, sPathTemp: string;
+begin
+  try
+    // Monta para utilização do Schemas conforme o Modelo do Documento
+    // caso modelo não reconhecido define por padrão inicial como NFe
+    if (pModeloDF in [mdCupomFiscal, mdInvalido, mdVazio]) then begin
+      sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(mdNFe) + '\ve' + OnlyNumber(VersaoDFToStr(pVersao));
+    end else begin
+      sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(pModeloDF) + '\ve' + OnlyNumber(VersaoDFToStr(pVersao));
+    end;
+
+    // Caso não encontre o diretório busca por outras referências
+    sPathTemp := GetPathCompleto(sPathSchemas);
+    if not DirectoryExists(sPathTemp) then begin
+      if (pModeloDF = mdNFCe) then begin
+        sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(mdNFe) + '\ve' + OnlyNumber(VersaoDFToStr(pVersao));
+        sPathTemp    := GetPathCompleto(sPathSchemas);
+        if not DirectoryExists(sPathTemp) then begin
+          sPathSchemas := 'Schemas\ve' + OnlyNumber(VersaoDFToStr(pVersao));
+        end;
+      end else begin
+        sPathSchemas := 'Schemas\ve' + OnlyNumber(VersaoDFToStr(pVersao));
+      end;
+    end;
+
+    // Exemplo de uso para especificação de Schema conforme a NT
+    //if pUsaNT_2020_006 then begin
+    //  sPathTemp := GetPathCompleto(sPathSchemas + '_nt_2020_006');
+    //  if DirectoryExists(sPathTemp) then begin
+    //    sPathSchemas := sPathSchemas + '_nt_2020_006';
+    //  end;
+    //end;
+
+    // Define path de homologação apenas quando diretório existir
+    if (pAmbiente = taHomologacao) then begin
+      sPathTemp := GetPathCompleto(sPathSchemas + '_homologacao');
+      if DirectoryExists(sPathTemp) then begin
+        sPathSchemas := sPathSchemas + '_homologacao';
+      end;
+    end;
+    { TODO: 1 -oTotall - Pedro E. Braga -cCUST: Customização; Tratado para utilizar Schemas especificos em algumas regras como a necessidade da "NT_ - 2018_005 e 2020_006" ou "Homologação" }
+  finally
+    Result := GetPathCompleto(sPathSchemas);
+  end;
+end;
+
+class function TTotallACBrHelper.PathSchemasTACBrNFSeX(const pAmbiente: TpcnTipoAmbiente): string;
+var
+  sPathSchemas, sPathTemp: string;
+begin
+  try
+    // Monta para utilização do Schemas conforme o Modelo do Documento
+    sPathSchemas := 'Schemas\' + TEnum.ModeloDocumentoToDFe(mdNFSe);
+
+    // Caso não encontre o diretório busca por outras referências
+    sPathTemp := GetPathCompleto(sPathSchemas);
+    if not DirectoryExists(sPathTemp) then begin
+      sPathSchemas := 'NFSeConfig\Schemas';
+    end;
+
+    // Define path de homologação apenas quando diretório existir
+    if (pAmbiente = taHomologacao) then begin
+      sPathTemp := GetPathCompleto(sPathSchemas + '_homologacao');
+      if DirectoryExists(sPathTemp) then begin
+        sPathSchemas := sPathSchemas + '_homologacao';
+      end;
+    end;
+    { TODO: 1 -oTotall - Pedro E. Braga -cCUST: Customização; Tratado para utilizar Schemas especificos em algumas regras como a necessidade da "NT_ - XXXX_XXX" ou "Homologação" }
+  finally
+    Result := GetPathCompleto(sPathSchemas);
+  end;
+end;
+
+class function TTotallACBrHelper.ACBrNFSeXDANFSeFRNew(ACBrNFSeX: TACBrNFSeX; const pCfgEmpresa: TCfgEmpresa; const pImpressora: string;
+  const pSetImpressora: Boolean): TACBrNFSeXDANFSeFR;
+begin
+  if not Assigned(ACBrNFSeX) then
+    raise Exception.Create('ACBrNFSeX não informado!');
+
+  Result          := TACBrNFSeXDANFSeFR.Create(nil);
+  Result.ACBrNFSe := ACBrNFSeX;
+
+  TTotallACBrHelper.ConfiguracaoTACBrNFSeXDANFSeFR(Result, pCfgEmpresa, pImpressora, pSetImpressora);
+end;
+
+class function TTotallACBrHelper.ACBrNFSeXNew(pOwner: TComponent; pCfgEmpresa: TCfgEmpresa; pCfgProxy: TCfgProxy; pDANFE: Boolean): TACBrNFSeX;
+begin
+  Self.CriaDiretorios();
+
+  Result := TACBrNFSeX.Create(pOwner);
+
+  if  Assigned(pCfgEmpresa) then
+    Self.ConfiguracaoTACBrNFSeXCfgEmpresa(Result, pCfgEmpresa);
+
+  Result.OnGerarLog := ACBrGravarLog;
+  if Assigned(pCfgProxy) then begin
+    // Definição de Proxy
+    Result.Configuracoes.WebServices.ProxyHost := pCfgProxy.Host;
+    Result.Configuracoes.WebServices.ProxyPort := IntToStr(pCfgProxy.Porta);
+    Result.Configuracoes.WebServices.ProxyUser := pCfgProxy.Usuario;
+    Result.Configuracoes.WebServices.ProxyPass := pCfgProxy.Senha;
+    Result.Configuracoes.WebServices.TimeOut   := 45000;
+  end;
+
+  if pDANFE then begin
+    Result.DANFSE := TTotallACBrHelper.ACBrNFSeXDANFSeFRNew(Result, pCfgEmpresa, '', False);
+  end;
+
+  // ACBr não enviará o email da NFSe.
+  // Isso ficará por conta do serviço do Middleware que buscará as informações da guarda.
+  // Result.MAIL.Host                := edtSmtpHost.Text;
+  // Result.MAIL.Port                := edtSmtpPort.Text;
+  // Result.MAIL.Username            := edtSmtpUser.Text;
+  // Result.MAIL.Password            := edtSmtpPass.Text;
+  // Result.MAIL.From                := edtEmailRemetente.Text;
+  // Result.MAIL.FromName            := edtEmitRazao.Text;
+  // Result.MAIL.SetTLS              := cbEmailTLS.Checked;
+  // Result.MAIL.SetSSL              := cbEmailSSL.Checked;
+  // Result.MAIL.UseThread           := False;
+  // Result.MAIL.ReadingConfirmation := False;
+end;
+
+class function TTotallACBrHelper.GetSistema: string;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := 'totall';
+  try
+{$IFDEF WSLocal}
+    cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+    oIni    := TIniFile.Create(cArqIni);
+    Result  := oIni.ReadString('GuardaLocal', 'Sistema', 'totall');
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := 'totall';
+{$ELSE}
+    if Assigned(puMiddleware.Ini) then begin
+      Result := puMiddleware.Ini.Sistema;
+    end else begin
+      cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+      oIni    := TIniFile.Create(cArqIni);
+      Result  := oIni.ReadString('GuardaLocal', 'Sistema', 'totall');
+      if not FileExists(cArqIni) then begin
+        oIni.WriteString('GuardaLocal', 'Sistema', Result);
+      end;
+    end;
+{$ENDIF}
+{$ENDIF}
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+end;
+
+class function TTotallACBrHelper.GetSSLCryptLib: TSSLCryptLib;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := cryWinCrypt;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := TSSLCryptLib(oIni.ReadInteger('Sefaz', 'sslcryptlib', Integer(cryWinCrypt)));
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := TSSLCryptLib(Integer(cryWinCrypt));
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.SSLCryptLib;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := TSSLCryptLib(oIni.ReadInteger('Sefaz', 'sslcryptlib', Integer(cryWinCrypt)));
+      if not FileExists(cArqIni) then begin
+        oIni.WriteInteger('Sefaz', 'sslhttplib', Integer(Result));
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetSSLHttpLib: TSSLHttpLib;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := httpWinHttp;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := TSSLHttpLib(oIni.ReadInteger('Sefaz', 'sslhttplib', Integer(httpWinHttp)));
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := TSSLHttpLib(Integer(httpWinHttp));
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.SSLHttpLib;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := TSSLHttpLib(oIni.ReadInteger('Sefaz', 'sslhttplib', Integer(httpWinHttp)));
+      if not FileExists(cArqIni) then begin
+        oIni.WriteInteger('Sefaz', 'sslhttplib', Integer(Result));
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetSSLLib: TSSLLib;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := libWinCrypt;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := TSSLLib(oIni.ReadInteger('Sefaz', 'ssllib', Integer(libWinCrypt)));
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := TSSLLib(Integer(libWinCrypt));
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.SSLLib;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := TSSLLib(oIni.ReadInteger('Sefaz', 'ssllib', Integer(libWinCrypt)));
+      if not FileExists(cArqIni) then begin
+        oIni.WriteInteger('Sefaz', 'ssllib', Integer(Result));
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetSSLType: TSSLType;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := LT_all;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := TSSLType(oIni.ReadInteger('Sefaz', 'ssltype', Integer(LT_all)));
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := TSSLType(Integer(LT_all));
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.SSLType;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := TSSLType(oIni.ReadInteger('Sefaz', 'ssltype', Integer(LT_all)));
+      if not FileExists(cArqIni) then begin
+        oIni.WriteInteger('Sefaz', 'ssltype', Integer(Result));
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetSSLType_PorMunicipio(pCodIBGE_Mun: Integer): TSSLType;
+begin
+  Result := LT_all;
+  case pCodIBGE_Mun of
+    4202404: Result := LT_TLSv1_2;
+  end;
+end;
+
+class function TTotallACBrHelper.GetSSLXmlSignLib: TSSLXmlSignLib;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := xsMsXml;
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := TSSLXmlSignLib(oIni.ReadInteger('Sefaz', 'sslxmlsignlib', Integer(xsMsXml)));
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := TSSLXmlSignLib(Integer(xsMsXml));
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := puMiddleware.Ini.SSLXmlSignLib;
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := TSSLXmlSignLib(oIni.ReadInteger('Sefaz', 'sslxmlsignlib', Integer(xsMsXml)));
+      if not FileExists(cArqIni) then begin
+        oIni.WriteInteger('Sefaz', 'sslxmlsignlib', Integer(Result));
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetTimeZoneModoDeteccao: TTimeZoneModoDeteccao;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+
+  // MN - Default é tzPCN que pega pela UF.
+  Result := tzPCN;
+
+{$IFDEF WSLocal}
+  cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+  try
+    oIni   := TIniFile.Create(cArqIni);
+    Result := TTimeZoneModoDeteccao(oIni.ReadInteger('Sefaz', 'timezone', Integer(tzPCN)));
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := TTimeZoneModoDeteccao(Integer(tzPCN));
+{$ELSE}
+  if Assigned(puMiddleware.Ini) then begin
+    Result := TTimeZoneModoDeteccao(puMiddleware.Ini.TimeZone);
+  end else begin
+    cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+    try
+      oIni   := TIniFile.Create(cArqIni);
+      Result := TTimeZoneModoDeteccao(oIni.ReadInteger('Sefaz', 'timezone', Integer(tzPCN)));
+      if not FileExists(cArqIni) then begin
+        oIni.WriteInteger('Sefaz', 'timezone', Integer(Result));
+      end;
+    finally
+      if Assigned(oIni) then
+        FreeAndNil(oIni);
+    end;
+  end;
+{$ENDIF}
+{$ENDIF}
+end;
+
+class function TTotallACBrHelper.GetVersaoQRCode(pUF: String): string;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  oIni   := nil;
+  Result := '';
+  try
+{$IFDEF WSLocal}
+    cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+    oIni    := TIniFile.Create(cArqIni);
+    Result  := oIni.ReadString('Sefaz', 'versao_qrcode', '');
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := '';
+{$ELSE}
+    if Assigned(puMiddleware.Ini) then begin
+      Result := puMiddleware.Ini.VersaoQRCode;
+    end else begin
+      cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+      oIni    := TIniFile.Create(cArqIni);
+      Result  := oIni.ReadString('Sefaz', 'versao_qrcode', '');
+      if not FileExists(cArqIni) then begin
+        oIni.WriteString('Sefaz', 'versao_qrcode', Result);
+      end;
+    end;
+{$ENDIF}
+{$ENDIF}
+    // Define Versão do QR-Code com base no Estado quando não encontrado a definição no arquivo INI
+    if (Trim(Result)=EmptyStr) then begin
+      if (Trim(pUF)=EmptyStr) then begin
+        Result := '2';
+      end else begin
+        Result := TEnum.VersaoQRCodeUF(pUF);
+      end;
+    end;
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+end;
+
+class function TTotallACBrHelper.GetCamposFatObrigatorios: Boolean;
+var
+  oIni: TIniFile;
+  cArqIni: string;
+begin
+  Result := True;
+  oIni   := nil;
+  try
+{$IFDEF WSLocal}
+    cArqIni := GetCurrentDir() + '\TotallWSLocal.ini';
+    oIni    := TIniFile.Create(cArqIni);
+    Result  := oIni.ReadBool('Sefaz', 'campos_fat_obrigatorios', True);
+{$ELSE}
+{$IFDEF WSServiceMonitor}
+    Result  := True;
+{$ELSE}
+    if Assigned(puMiddleware.Ini) then begin
+      Result := puMiddleware.Ini.CamposFatObrigatorios;
+    end else begin
+      cArqIni := GetCurrentDir() + '\MiddlewareLocal.ini';
+      oIni    := TIniFile.Create(cArqIni);
+      Result  := oIni.ReadBool('Sefaz', 'campos_fat_obrigatorios', True);
+      if not FileExists(cArqIni) then begin
+        oIni.WriteBool('Sefaz', 'campos_fat_obrigatorios', Result);
+      end;
+    end;
+{$ENDIF}
+{$ENDIF}
+  finally
+    if Assigned(oIni) then
+      FreeAndNil(oIni);
+  end;
+end;
+
+class function TTotallACBrHelper.CreateTACBrNFePadrao(const pModelo: TEnumModeloDocumento): TACBrNFe;
+begin
+  Result := CreateTACBrNFeParans(pModelo, EmptyStr, EmptyStr, EmptyStr, EmptyStr, EmptyStr);
+end;
+
+class function TTotallACBrHelper.CreateTACBrCTePadrao(const pModelo: TEnumModeloDocumento): TACBrCTe;
+begin
+  Result := CreateTACBrCTeParans(pModelo, EmptyStr, EmptyStr, EmptyStr, EmptyStr, EmptyStr);
+end;
+
+class function TTotallACBrHelper.CreateTACBrMDFePadrao(const pModelo: TEnumModeloDocumento): TACBrMDFe;
+begin
+  Result := CreateTACBrMDFeParans(pModelo, EmptyStr, EmptyStr, EmptyStr, EmptyStr, EmptyStr);
+end;
+
+{ TTotallACBrHTTP }
+
+procedure TTotallACBrHTTP.HTTPGet(const AURL: string);
+begin
+  try
+    HTTPMethod('GET', AURL);
+  except
+    on E: Exception do begin
+      RegistraLog('TTotallACBrHTTP.HTTPGet:' + E.Message + sLineBreak +
+           IfThen(Assigned(HTTPSend) and Assigned(HTTPSend.Document), 'Requisição: ' + HTTPSend.Document.ToString, '')
+         );
+      raise Exception.Create(E.Message);
+    end;
+  end;
+end;
+
+procedure TTotallACBrHTTP.HTTPPost(const AURL: string);
+begin
+  try
+    inherited;
+  except
+    on E: Exception do begin
+      RegistraLog('TTotallACBrHTTP.HTTPPost:' + sLineBreak +
+           'URL: ' + AURL + sLineBreak +
+           IfThen(Assigned(HTTPSend) and Assigned(HTTPSend.Document), 'Requisição: ' + HTTPSend.Document.ToString + sLineBreak, '') +
+           'Erro: ' + E.Message
+         );
+      raise Exception.Create(E.Message);
+    end;
+  end;
+end;
+
+end.
+
+
+
+

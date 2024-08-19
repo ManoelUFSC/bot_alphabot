@@ -1,0 +1,154 @@
+unit TTUComunicacao;
+
+interface
+
+uses
+  System.Classes,
+  System.SysUtils,
+  System.DateUtils,
+  System.Generics.Collections,
+  System.JSON,
+
+{$IFDEF DELPHIXE}
+  ACBrUtil.Strings,
+  ACBrUtil.FilesIO,
+{$ELSE}
+  ACBrUtil,
+{$ENDIF}
+  ACBrDFeSSL,
+  ACBrDFeConfiguracoes,
+  ACBrNFeConfiguracoes,
+  ACBrNFSeXConfiguracoes,
+  ACBrNFe,
+  ACBrPosPrinter,
+  ACBrDFeDANFeReport,
+  ACBrNFeDANFEClass,
+  ACBrNFeDANFeESCPOS,
+  ACBrNFeDANFEFR,
+  ACBrNFSeXDANFSeFR,
+  ACBrSAT,
+  ACBrSATExtratoESCPOS,
+  ACBrBoleto,
+  ACBrBoletoFCFR,
+  ACBrValidador,
+  ACBrPAF,
+  ACBrBlocoX_Comum,
+  ACBrBlocoX,
+  ACBrBase,
+  ACBrSocket,
+  ACBrConsultaCNPJ,
+  ACBrConsultaCPF,
+  ACBrNFSeX,
+  ACBrETQ,
+  ACBrCHQ,
+  ACBrBAL,
+  ACBrDevice,
+  ACBrPAFRegistros,
+  pcnAuxiliar,
+  TTUConsts,
+  TTUEnumeradores,
+  TTUConversoesACBr,
+  TTUFuncoes,
+  TTURetorno,
+  ACBrCTe,
+  ACBrCTeDACTEFR,
+  pcteConversaoCTe,
+  ACBrCTeConfiguracoes,
+  ACBrMDFe,
+  ACBrLCB,
+  pmdfeConversaoMDFe,
+  ACBrMDFeDAMDFEFR,
+  ACBrSATWS,
+  TTURaffle;
+
+type
+  TComunicacaoAlphabot = class(TACBrHTTP)
+
+  private
+
+  public
+    destructor Destroy; override;
+
+    procedure HTTPGet(const AURL: string); override;
+    procedure HTTPPost(const AURL: string); override;
+  end;
+
+type
+  TComunicacaoACBrHelper = class
+    class function fromJSON(pRetorno: string): TObjectList<TRaffle>;
+  end;
+
+implementation
+
+uses
+  TTUJSONUtil;
+{ TComunicacaoAlphabot }
+
+destructor TComunicacaoAlphabot.Destroy;
+begin
+
+  inherited;
+end;
+
+procedure TComunicacaoAlphabot.HTTPGet(const AURL: string);
+begin
+  try
+    HTTPMethod('GET', AURL);
+  except
+    on E: Exception do begin
+      raise Exception.Create(E.Message);
+    end;
+  end;
+end;
+
+procedure TComunicacaoAlphabot.HTTPPost(const AURL: string);
+begin
+  try
+    inherited;
+  except
+    on E: Exception do begin
+      raise Exception.Create(E.Message);
+    end;
+  end;
+end;
+
+{ TComunicacaoACBrHelper }
+
+class function TComunicacaoACBrHelper.fromJSON(pRetorno: string): TObjectList<TRaffle>;
+var
+  i: integer;
+  cLista: string;
+  oJSONObject, oJSONObjectData: TJSONObject;
+  oJsonArr: TJSONArray;
+begin
+  Result      := nil;
+
+  if pRetorno <> '' then begin
+    oJSONObject := nil;
+
+    Result := TObjectList<TRaffle>.Create;
+    try
+      oJSONObject := TJSONUtil.ParseJSONValue(pRetorno) as TJSONObject;
+
+      if Assigned(oJSONObject) then begin
+        oJSONObjectData := TJsonObject(TJSONUtil.GetObj(oJSONObject, 'data'));
+
+        oJsonArr := TJSONArray.Create;
+        oJsonArr := TJsonArray(TJSONUtil.GetValue(oJSONObjectData, 'raffles'));
+
+        for i := 1 to oJsonArr.Count - 1 do begin
+
+          cLista := cLista + oJsonArr[i].Value;
+        end;
+
+
+      end;
+    finally
+      if Assigned(oJSONObject) then
+        FreeAndNil(oJSONObject);
+    end;
+
+  end;
+end;
+
+end.

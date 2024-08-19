@@ -1,0 +1,143 @@
+unit TTUConfig;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Menus, IniFiles;
+
+  type
+    TConfiguracoes = class
+
+    private
+      FAPIKey2: string;
+      FAPIKey3: string;
+      FAPIKey1: string;
+      FURLConsulta: string;
+      FURLRegistro: string;
+      FTimeoutConsulta: integer;
+
+      procedure LeIniFile;
+    public
+      constructor Create;
+      destructor Destroy; Override;
+
+      property APIKey1: string read FAPIKey1 write FAPIKey1;
+      property APIKey2: string read FAPIKey2 write FAPIKey2;
+      property APIKey3: string read FAPIKey3 write FAPIKey3;
+      property URLConsulta: string read FURLConsulta write FURLConsulta;
+      property URLRegistro: string read FURLRegistro write FURLRegistro;
+      property TimeoutConsulta: integer read FTimeoutConsulta write FTimeoutConsulta;
+
+      procedure AtualizaInformacoes;
+    end;
+
+type
+  TfrmConfigura = class(TForm)
+    pnBotoes: TPanel;
+    btFechar: TButton;
+    ed_APIKEY1: TEdit;
+    lb_APIKEY1: TLabel;
+    lb_APIKEY2: TLabel;
+    ed_APIKEY2: TEdit;
+    ed_APIKEY3: TEdit;
+    lb_APIKEY3: TLabel;
+    lb_TimeoutConsulta: TLabel;
+    ed_TimeoutPesquisa: TEdit;
+    lb_URLConsulta: TLabel;
+    ed_URLConsulta: TEdit;
+    lb_URLRegistro: TLabel;
+    ed_URLRegistro: TEdit;
+    procedure ed_TimeoutPesquisaKeyPress(Sender: TObject; var Key: Char);
+    procedure btFecharClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+  private
+    FConfiguracoes: TConfiguracoes;
+    procedure SalvaIniFile;
+  public
+    property Configuracoes: TConfiguracoes read FConfiguracoes write FConfiguracoes;
+  end;
+
+var
+  frmConfigura: TfrmConfigura;
+
+implementation
+
+{$R *.dfm}
+
+procedure TfrmConfigura.btFecharClick(Sender: TObject);
+begin
+  SalvaIniFile;
+  Self.Close;
+end;
+
+procedure TfrmConfigura.ed_TimeoutPesquisaKeyPress(Sender: TObject; var Key: Char);
+begin
+  if not (Key in ['0'..'9', #8]) then
+    Key := #0;
+end;
+
+procedure TfrmConfigura.FormShow(Sender: TObject);
+begin
+  if Assigned(FConfiguracoes) then begin
+    ed_APIKEY1.Text         := FConfiguracoes.APIKey1;
+    ed_APIKEY2.Text         := FConfiguracoes.APIKey2;
+    ed_APIKEY3.Text         := FConfiguracoes.APIKey3;
+    ed_URLConsulta.Text     := FConfiguracoes.URLConsulta;
+    ed_URLRegistro.Text     := FConfiguracoes.URLRegistro;
+    ed_TimeoutPesquisa.Text := IntToStr(FConfiguracoes.TimeoutConsulta);
+  end;
+end;
+
+procedure TfrmConfigura.SalvaIniFile;
+var
+  oIniFile: TIniFile;
+begin
+  try
+    oIniFile := TIniFile.Create(ExtractFileDir(Application.ExeName) + '\Config.ini');
+    oIniFile.WriteInteger('Configuracoes', 'TimeoutConsulta', StrToInt(ed_TimeoutPesquisa.Text));
+    oIniFile.WriteString('Configuracoes', 'APIKEY1', ed_APIKEY1.Text);
+    oIniFile.WriteString('Configuracoes', 'APIKEY2', ed_APIKEY2.Text);
+    oIniFile.WriteString('Configuracoes', 'APIKEY3', ed_APIKEY3.Text);
+    oIniFile.WriteString('Configuracoes', 'URLConsulta', ed_URLConsulta.Text);
+    oIniFile.WriteString('Configuracoes', 'URLRegistro', ed_URLRegistro.Text);
+  finally
+    FreeAndNil(oIniFile);
+  end;
+end;
+
+{ TConfiguracoes }
+
+procedure TConfiguracoes.AtualizaInformacoes;
+begin
+  LeIniFile;
+end;
+
+constructor TConfiguracoes.Create;
+begin
+  LeIniFile;
+end;
+
+destructor TConfiguracoes.Destroy;
+begin
+  inherited;
+end;
+
+procedure TConfiguracoes.LeIniFile;
+var
+  oIniFile: TIniFile;
+begin
+  try
+    oIniFile := TIniFile.Create(ExtractFileDir(Application.ExeName) + '\Config.ini');
+    Self.TimeoutConsulta := oIniFile.ReadInteger('Configuracoes', 'TimeoutConsulta', 2);
+    Self.APIKey1         := oIniFile.ReadString('Configuracoes', 'APIKEY1', '');
+    Self.APIKey2         := oIniFile.ReadString('Configuracoes', 'APIKEY2', '');
+    Self.APIKey3         := oIniFile.ReadString('Configuracoes', 'APIKEY3', '');
+    Self.URLConsulta     := oIniFile.ReadString('Configuracoes', 'URLConsulta', 'https://api.alphabot.app/v1/raffles?status=active&filter=unregistered&reqOptions=f%26l%26t');
+    Self.URLRegistro     := oIniFile.ReadString('Configuracoes', 'URLRegistro', 'https://api.alphabot.app/v1/register');
+  finally
+    FreeAndNil(oIniFile);
+  end;
+end;
+
+end.
