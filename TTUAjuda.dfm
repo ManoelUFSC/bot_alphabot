@@ -54,6 +54,6 @@ object frmAjuda: TfrmAjuda
     ParentFont = False
     ReadOnly = True
     TabOrder = 0
-    Text = '0x1D65a36E816D4f40FcB138fffD7d0FcE29dC7d73'
+    Text = '0xF805fcC5Cac09d793679Cce06Aa12347f141C402'
   end
 end
